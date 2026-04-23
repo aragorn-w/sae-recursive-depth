@@ -1,0 +1,1784 @@
+# EXPERIMENTS.yaml
+# Locked experimental matrix for the recursive meta-SAE project.
+# Source of truth for what runs. The runner iterates this file in dependency order.
+# Human edits this file to add/remove experiments. Runner must not modify it.
+#
+# Field semantics:
+#   id                 unique string, stable across commits
+#   description        short human-readable label
+#   base_model         huggingface model id for the base LM
+#   level0_arch        jumprelu | batchtopk | none (none = flat SAE or null)
+#   level0_source      huggingface id | "train_from_scratch" | "flat_sae_on_activations" | "random_gaussian" | "bartbussmann/BatchTopK"
+#   site               residual | mlp_out | attn_out
+#   layer              int
+#   width              latent count (or d_model*ratio for recursive depths)
+#   depth              0 (level-0) | 1 | 2 | 3
+#   seed               int
+#   dict_ratio         width at this depth divided by width at depth-1 (0.5, 0.25, 0.125, ~0.0476=1/21); null for depth 0
+#   sparsity           k (BatchTopK) or target L0 (JumpReLU)
+#   gpu_preference     comma-separated CUDA_VISIBLE_DEVICES values
+#   dependencies       list of experiment ids that must complete before this one runs
+#   decision_gates     list of {metric, threshold, action}
+#   estimated_gpu_hours float
+#   outputs            list of files this experiment produces
+#   status             pending | running | complete | failed | skipped_by_gate
+#   conditional        optional {stretch_if_time_permits: true} for Experiment 7
+#
+# Decision-gate actions (defined formally in SPEC.md):
+#   continue_depth     proceed to next depth for this cell
+#   skip_depth         mark all deeper rows for this (base_model, level0_arch, seed) as skipped_by_gate
+#   skip_experiment    mark only this row as skipped_by_gate
+#   halt_and_notify    stop runner immediately, ntfy urgent
+#
+# Units: estimated_gpu_hours are rough; see DECISIONS.md for compute budget.
+
+meta:
+  version: "1.0"
+  created: "2026-04-14"
+  primary_site: "residual"
+  gemma_d_model: 2304
+  gpt2_d_model: 768
+  gemma_layer: 12
+  gpt2_layer: 8
+  gemma_level0_width: 65536
+  gpt2_level0_width: 49152
+  primary_dict_ratio: 0.25
+  bussmann_ratio: 0.047619047619
+  seeds: [0, 1, 2]
+  batchtopk_k_level0: 60
+  jumprelu_l0_target: 72
+  batchtopk_k_meta: 4
+  null_baseline_distribution: "isotropic_gaussian"
+
+experiments:
+
+# ============================================================
+# SECTION 1: Level-0 training on Gemma-2-2B (BatchTopK from scratch)
+# ============================================================
+
+- id: "l0_gemma_batchtopk"
+  description: "Train BatchTopK level-0 SAE on Gemma-2-2B layer 12 residual, width 65536, k=60, 500M Pile tokens"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 65536
+  depth: 0
+  seed: 0
+  dict_ratio: null
+  sparsity: 60
+  gpu_preference: "2"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.70, action: "halt_and_notify"}
+  - {metric: "dead_latent_fraction", threshold: 0.30, action: "halt_and_notify"}
+  estimated_gpu_hours: 12.0
+  outputs:
+  - "experiments/artifacts/l0_gemma_batchtopk/checkpoint.pt"
+  - "experiments/artifacts/l0_gemma_batchtopk/metrics.tsv"
+  status: "pending"
+
+# ============================================================
+# SECTION 2: Gemma-2-2B recursive meta-SAE, ratio 1/4, depths 1-3
+# 2 level-0 architectures x 3 depths x 3 seeds = 18 rows
+# ============================================================
+
+- id: "gemma_jumprelu_d1_s0"
+  description: "Gemma-2-2B JumpReLU level-0 -> meta-SAE depth 1 seed 0 ratio 1/4 (16384 latents)"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "jumprelu"
+  level0_source: "google/gemma-scope-2b-pt-res-canonical"
+  site: "residual"
+  layer: 12
+  width: 16384
+  depth: 1
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/gemma_jumprelu_d1_s0/checkpoint.pt"
+  - "experiments/artifacts/gemma_jumprelu_d1_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_jumprelu_d1_s1"
+  description: "Gemma-2-2B JumpReLU level-0 -> meta-SAE depth 1 seed 1 ratio 1/4"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "jumprelu"
+  level0_source: "google/gemma-scope-2b-pt-res-canonical"
+  site: "residual"
+  layer: 12
+  width: 16384
+  depth: 1
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/gemma_jumprelu_d1_s1/checkpoint.pt"
+  - "experiments/artifacts/gemma_jumprelu_d1_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_jumprelu_d1_s2"
+  description: "Gemma-2-2B JumpReLU level-0 -> meta-SAE depth 1 seed 2 ratio 1/4"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "jumprelu"
+  level0_source: "google/gemma-scope-2b-pt-res-canonical"
+  site: "residual"
+  layer: 12
+  width: 16384
+  depth: 1
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/gemma_jumprelu_d1_s2/checkpoint.pt"
+  - "experiments/artifacts/gemma_jumprelu_d1_s2/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_jumprelu_d2_s0"
+  description: "Gemma-2-2B JumpReLU -> meta-meta-SAE depth 2 seed 0 ratio 1/4 (4096 latents)"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "jumprelu"
+  level0_source: "google/gemma-scope-2b-pt-res-canonical"
+  site: "residual"
+  layer: 12
+  width: 4096
+  depth: 2
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["gemma_jumprelu_d1_s0"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.2
+  outputs:
+  - "experiments/artifacts/gemma_jumprelu_d2_s0/checkpoint.pt"
+  - "experiments/artifacts/gemma_jumprelu_d2_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_jumprelu_d2_s1"
+  description: "Gemma-2-2B JumpReLU -> meta-meta-SAE depth 2 seed 1 ratio 1/4"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "jumprelu"
+  level0_source: "google/gemma-scope-2b-pt-res-canonical"
+  site: "residual"
+  layer: 12
+  width: 4096
+  depth: 2
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: ["gemma_jumprelu_d1_s1"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.2
+  outputs:
+  - "experiments/artifacts/gemma_jumprelu_d2_s1/checkpoint.pt"
+  - "experiments/artifacts/gemma_jumprelu_d2_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_jumprelu_d2_s2"
+  description: "Gemma-2-2B JumpReLU -> meta-meta-SAE depth 2 seed 2 ratio 1/4"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "jumprelu"
+  level0_source: "google/gemma-scope-2b-pt-res-canonical"
+  site: "residual"
+  layer: 12
+  width: 4096
+  depth: 2
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["gemma_jumprelu_d1_s2"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.2
+  outputs:
+  - "experiments/artifacts/gemma_jumprelu_d2_s2/checkpoint.pt"
+  - "experiments/artifacts/gemma_jumprelu_d2_s2/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_jumprelu_d3_s0"
+  description: "Gemma-2-2B JumpReLU -> depth 3 seed 0 ratio 1/4 (1024 latents; 1.8x oversampling)"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "jumprelu"
+  level0_source: "google/gemma-scope-2b-pt-res-canonical"
+  site: "residual"
+  layer: 12
+  width: 1024
+  depth: 3
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["gemma_jumprelu_d2_s0"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/gemma_jumprelu_d3_s0/checkpoint.pt"
+  - "experiments/artifacts/gemma_jumprelu_d3_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_jumprelu_d3_s1"
+  description: "Gemma-2-2B JumpReLU -> depth 3 seed 1 ratio 1/4"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "jumprelu"
+  level0_source: "google/gemma-scope-2b-pt-res-canonical"
+  site: "residual"
+  layer: 12
+  width: 1024
+  depth: 3
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: ["gemma_jumprelu_d2_s1"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/gemma_jumprelu_d3_s1/checkpoint.pt"
+  - "experiments/artifacts/gemma_jumprelu_d3_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_jumprelu_d3_s2"
+  description: "Gemma-2-2B JumpReLU -> depth 3 seed 2 ratio 1/4"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "jumprelu"
+  level0_source: "google/gemma-scope-2b-pt-res-canonical"
+  site: "residual"
+  layer: 12
+  width: 1024
+  depth: 3
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["gemma_jumprelu_d2_s2"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/gemma_jumprelu_d3_s2/checkpoint.pt"
+  - "experiments/artifacts/gemma_jumprelu_d3_s2/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_d1_s0"
+  description: "Gemma-2-2B BatchTopK level-0 -> meta-SAE depth 1 seed 0 ratio 1/4"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 16384
+  depth: 1
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["l0_gemma_batchtopk"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_d1_s0/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_d1_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_d1_s1"
+  description: "Gemma-2-2B BatchTopK level-0 -> meta-SAE depth 1 seed 1 ratio 1/4"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 16384
+  depth: 1
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: ["l0_gemma_batchtopk"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_d1_s1/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_d1_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_d1_s2"
+  description: "Gemma-2-2B BatchTopK level-0 -> meta-SAE depth 1 seed 2 ratio 1/4"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 16384
+  depth: 1
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["l0_gemma_batchtopk"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_d1_s2/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_d1_s2/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_d2_s0"
+  description: "Gemma-2-2B BatchTopK -> depth 2 seed 0 ratio 1/4 (4096 latents)"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 4096
+  depth: 2
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["gemma_batchtopk_d1_s0"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.2
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_d2_s0/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_d2_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_d2_s1"
+  description: "Gemma-2-2B BatchTopK -> depth 2 seed 1 ratio 1/4"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 4096
+  depth: 2
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: ["gemma_batchtopk_d1_s1"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.2
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_d2_s1/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_d2_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_d2_s2"
+  description: "Gemma-2-2B BatchTopK -> depth 2 seed 2 ratio 1/4"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 4096
+  depth: 2
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["gemma_batchtopk_d1_s2"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.2
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_d2_s2/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_d2_s2/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_d3_s0"
+  description: "Gemma-2-2B BatchTopK -> depth 3 seed 0 ratio 1/4 (1024 latents; 1.8x oversampling)"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 1024
+  depth: 3
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["gemma_batchtopk_d2_s0"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_d3_s0/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_d3_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_d3_s1"
+  description: "Gemma-2-2B BatchTopK -> depth 3 seed 1 ratio 1/4"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 1024
+  depth: 3
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: ["gemma_batchtopk_d2_s1"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_d3_s1/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_d3_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_d3_s2"
+  description: "Gemma-2-2B BatchTopK -> depth 3 seed 2 ratio 1/4"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 1024
+  depth: 3
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["gemma_batchtopk_d2_s2"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_d3_s2/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_d3_s2/metrics.tsv"
+  status: "pending"
+
+# ============================================================
+# SECTION 3: Depth-1 Bussmann anchor (ratio 1/21), depth-1 ONLY
+# 2 level-0 archs on Gemma (6 rows) + GPT-2 Small (3 rows) = 9 rows
+# Anchor experiments fire halt_and_notify if variance explained deviates > 5pp from Leask et al. 55.47%
+# The anchor runs ONLY at depth 1 because 1/21 collapses beyond depth 1
+# ============================================================
+
+- id: "gemma_jumprelu_anchor_d1_s0"
+  description: "Anchor: Gemma-2-2B JumpReLU -> depth 1 meta-SAE ratio 1/21 seed 0 (~3121 latents)"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "jumprelu"
+  level0_source: "google/gemma-scope-2b-pt-res-canonical"
+  site: "residual"
+  layer: 12
+  width: 3121
+  depth: 1
+  seed: 0
+  dict_ratio: 0.047619047619
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/gemma_jumprelu_anchor_d1_s0/checkpoint.pt"
+  - "experiments/artifacts/gemma_jumprelu_anchor_d1_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_jumprelu_anchor_d1_s1"
+  description: "Anchor: Gemma-2-2B JumpReLU -> depth 1 ratio 1/21 seed 1"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "jumprelu"
+  level0_source: "google/gemma-scope-2b-pt-res-canonical"
+  site: "residual"
+  layer: 12
+  width: 3121
+  depth: 1
+  seed: 1
+  dict_ratio: 0.047619047619
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/gemma_jumprelu_anchor_d1_s1/checkpoint.pt"
+  - "experiments/artifacts/gemma_jumprelu_anchor_d1_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_jumprelu_anchor_d1_s2"
+  description: "Anchor: Gemma-2-2B JumpReLU -> depth 1 ratio 1/21 seed 2"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "jumprelu"
+  level0_source: "google/gemma-scope-2b-pt-res-canonical"
+  site: "residual"
+  layer: 12
+  width: 3121
+  depth: 1
+  seed: 2
+  dict_ratio: 0.047619047619
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/gemma_jumprelu_anchor_d1_s2/checkpoint.pt"
+  - "experiments/artifacts/gemma_jumprelu_anchor_d1_s2/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_anchor_d1_s0"
+  description: "Anchor: Gemma-2-2B BatchTopK -> depth 1 ratio 1/21 seed 0 (~3121 latents)"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 3121
+  depth: 1
+  seed: 0
+  dict_ratio: 0.047619047619
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["l0_gemma_batchtopk"]
+  decision_gates:
+  - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_anchor_d1_s0/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_anchor_d1_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_anchor_d1_s1"
+  description: "Anchor: Gemma-2-2B BatchTopK -> depth 1 ratio 1/21 seed 1"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 3121
+  depth: 1
+  seed: 1
+  dict_ratio: 0.047619047619
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: ["l0_gemma_batchtopk"]
+  decision_gates:
+  - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_anchor_d1_s1/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_anchor_d1_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_anchor_d1_s2"
+  description: "Anchor: Gemma-2-2B BatchTopK -> depth 1 ratio 1/21 seed 2"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 3121
+  depth: 1
+  seed: 2
+  dict_ratio: 0.047619047619
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["l0_gemma_batchtopk"]
+  decision_gates:
+  - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_anchor_d1_s2/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_anchor_d1_s2/metrics.tsv"
+  status: "pending"
+
+- id: "gpt2_batchtopk_anchor_d1_s0"
+  description: "Anchor: GPT-2 Small BatchTopK (Bussmann) -> depth 1 ratio 1/21 seed 0 (2340 latents, direct Leask et al. replication)"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "bartbussmann/BatchTopK"
+  site: "residual"
+  layer: 8
+  width: 2340
+  depth: 1
+  seed: 0
+  dict_ratio: 0.047619047619
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/gpt2_batchtopk_anchor_d1_s0/checkpoint.pt"
+  - "experiments/artifacts/gpt2_batchtopk_anchor_d1_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gpt2_batchtopk_anchor_d1_s1"
+  description: "Anchor: GPT-2 Small BatchTopK -> depth 1 ratio 1/21 seed 1"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "bartbussmann/BatchTopK"
+  site: "residual"
+  layer: 8
+  width: 2340
+  depth: 1
+  seed: 1
+  dict_ratio: 0.047619047619
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/gpt2_batchtopk_anchor_d1_s1/checkpoint.pt"
+  - "experiments/artifacts/gpt2_batchtopk_anchor_d1_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gpt2_batchtopk_anchor_d1_s2"
+  description: "Anchor: GPT-2 Small BatchTopK -> depth 1 ratio 1/21 seed 2"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "bartbussmann/BatchTopK"
+  site: "residual"
+  layer: 8
+  width: 2340
+  depth: 1
+  seed: 2
+  dict_ratio: 0.047619047619
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/gpt2_batchtopk_anchor_d1_s2/checkpoint.pt"
+  - "experiments/artifacts/gpt2_batchtopk_anchor_d1_s2/metrics.tsv"
+  status: "pending"
+
+# ============================================================
+# SECTION 4: GPT-2 Small recursive meta-SAE, ratio 1/4, depths 1-3
+# 3 depths x 3 seeds = 9 rows
+# ============================================================
+
+- id: "gpt2_batchtopk_d1_s0"
+  description: "GPT-2 Small BatchTopK (Bussmann) -> depth 1 seed 0 ratio 1/4 (12288 latents)"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "bartbussmann/BatchTopK"
+  site: "residual"
+  layer: 8
+  width: 12288
+  depth: 1
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/gpt2_batchtopk_d1_s0/checkpoint.pt"
+  - "experiments/artifacts/gpt2_batchtopk_d1_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gpt2_batchtopk_d1_s1"
+  description: "GPT-2 Small BatchTopK -> depth 1 seed 1 ratio 1/4"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "bartbussmann/BatchTopK"
+  site: "residual"
+  layer: 8
+  width: 12288
+  depth: 1
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/gpt2_batchtopk_d1_s1/checkpoint.pt"
+  - "experiments/artifacts/gpt2_batchtopk_d1_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gpt2_batchtopk_d1_s2"
+  description: "GPT-2 Small BatchTopK -> depth 1 seed 2 ratio 1/4"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "bartbussmann/BatchTopK"
+  site: "residual"
+  layer: 8
+  width: 12288
+  depth: 1
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/gpt2_batchtopk_d1_s2/checkpoint.pt"
+  - "experiments/artifacts/gpt2_batchtopk_d1_s2/metrics.tsv"
+  status: "pending"
+
+- id: "gpt2_batchtopk_d2_s0"
+  description: "GPT-2 Small BatchTopK -> depth 2 seed 0 ratio 1/4 (3072 latents)"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "bartbussmann/BatchTopK"
+  site: "residual"
+  layer: 8
+  width: 3072
+  depth: 2
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["gpt2_batchtopk_d1_s0"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.15
+  outputs:
+  - "experiments/artifacts/gpt2_batchtopk_d2_s0/checkpoint.pt"
+  - "experiments/artifacts/gpt2_batchtopk_d2_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gpt2_batchtopk_d2_s1"
+  description: "GPT-2 Small BatchTopK -> depth 2 seed 1 ratio 1/4"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "bartbussmann/BatchTopK"
+  site: "residual"
+  layer: 8
+  width: 3072
+  depth: 2
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: ["gpt2_batchtopk_d1_s1"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.15
+  outputs:
+  - "experiments/artifacts/gpt2_batchtopk_d2_s1/checkpoint.pt"
+  - "experiments/artifacts/gpt2_batchtopk_d2_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gpt2_batchtopk_d2_s2"
+  description: "GPT-2 Small BatchTopK -> depth 2 seed 2 ratio 1/4"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "bartbussmann/BatchTopK"
+  site: "residual"
+  layer: 8
+  width: 3072
+  depth: 2
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["gpt2_batchtopk_d1_s2"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  estimated_gpu_hours: 0.15
+  outputs:
+  - "experiments/artifacts/gpt2_batchtopk_d2_s2/checkpoint.pt"
+  - "experiments/artifacts/gpt2_batchtopk_d2_s2/metrics.tsv"
+  status: "pending"
+
+- id: "gpt2_batchtopk_d3_s0"
+  description: "GPT-2 Small BatchTopK -> depth 3 seed 0 ratio 1/4 (768 latents; 5.3x oversampling on d=768)"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "bartbussmann/BatchTopK"
+  site: "residual"
+  layer: 8
+  width: 768
+  depth: 3
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["gpt2_batchtopk_d2_s0"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/gpt2_batchtopk_d3_s0/checkpoint.pt"
+  - "experiments/artifacts/gpt2_batchtopk_d3_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gpt2_batchtopk_d3_s1"
+  description: "GPT-2 Small BatchTopK -> depth 3 seed 1 ratio 1/4"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "bartbussmann/BatchTopK"
+  site: "residual"
+  layer: 8
+  width: 768
+  depth: 3
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: ["gpt2_batchtopk_d2_s1"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/gpt2_batchtopk_d3_s1/checkpoint.pt"
+  - "experiments/artifacts/gpt2_batchtopk_d3_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gpt2_batchtopk_d3_s2"
+  description: "GPT-2 Small BatchTopK -> depth 3 seed 2 ratio 1/4"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "bartbussmann/BatchTopK"
+  site: "residual"
+  layer: 8
+  width: 768
+  depth: 3
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["gpt2_batchtopk_d2_s2"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/gpt2_batchtopk_d3_s2/checkpoint.pt"
+  - "experiments/artifacts/gpt2_batchtopk_d3_s2/metrics.tsv"
+  status: "pending"
+
+# ============================================================
+# SECTION 5: Flat-SAE controls (Experiment 2 in proposal)
+# Trained directly on activations at 3 dict sizes x 3 seeds on Gemma = 9 rows
+# + 1 matched size x 3 seeds on GPT-2 Small = 3 rows
+# ============================================================
+
+- id: "flat_gemma_w16384_s0"
+  description: "Flat SAE on Gemma-2-2B L12 activations (10M Pile tokens), width 16384, seed 0 (matches depth-1 width)"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "flat_sae_on_activations"
+  site: "residual"
+  layer: 12
+  width: 16384
+  depth: 1
+  seed: 0
+  dict_ratio: null
+  sparsity: 60
+  gpu_preference: "2"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.50, action: "skip_experiment"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/flat_gemma_w16384_s0/checkpoint.pt"
+  - "experiments/artifacts/flat_gemma_w16384_s0/metrics.tsv"
+  status: "pending"
+
+- id: "flat_gemma_w16384_s1"
+  description: "Flat SAE Gemma width 16384 seed 1"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "flat_sae_on_activations"
+  site: "residual"
+  layer: 12
+  width: 16384
+  depth: 1
+  seed: 1
+  dict_ratio: null
+  sparsity: 60
+  gpu_preference: "2"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.50, action: "skip_experiment"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/flat_gemma_w16384_s1/checkpoint.pt"
+  - "experiments/artifacts/flat_gemma_w16384_s1/metrics.tsv"
+  status: "pending"
+
+- id: "flat_gemma_w16384_s2"
+  description: "Flat SAE Gemma width 16384 seed 2"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "flat_sae_on_activations"
+  site: "residual"
+  layer: 12
+  width: 16384
+  depth: 1
+  seed: 2
+  dict_ratio: null
+  sparsity: 60
+  gpu_preference: "2"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.50, action: "skip_experiment"}
+  estimated_gpu_hours: 0.5
+  outputs:
+  - "experiments/artifacts/flat_gemma_w16384_s2/checkpoint.pt"
+  - "experiments/artifacts/flat_gemma_w16384_s2/metrics.tsv"
+  status: "pending"
+
+- id: "flat_gemma_w4096_s0"
+  description: "Flat SAE Gemma width 4096 seed 0 (matches depth-2 width)"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "flat_sae_on_activations"
+  site: "residual"
+  layer: 12
+  width: 4096
+  depth: 2
+  seed: 0
+  dict_ratio: null
+  sparsity: 60
+  gpu_preference: "2"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.50, action: "skip_experiment"}
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/flat_gemma_w4096_s0/checkpoint.pt"
+  - "experiments/artifacts/flat_gemma_w4096_s0/metrics.tsv"
+  status: "pending"
+
+- id: "flat_gemma_w4096_s1"
+  description: "Flat SAE Gemma width 4096 seed 1"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "flat_sae_on_activations"
+  site: "residual"
+  layer: 12
+  width: 4096
+  depth: 2
+  seed: 1
+  dict_ratio: null
+  sparsity: 60
+  gpu_preference: "2"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.50, action: "skip_experiment"}
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/flat_gemma_w4096_s1/checkpoint.pt"
+  - "experiments/artifacts/flat_gemma_w4096_s1/metrics.tsv"
+  status: "pending"
+
+- id: "flat_gemma_w4096_s2"
+  description: "Flat SAE Gemma width 4096 seed 2"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "flat_sae_on_activations"
+  site: "residual"
+  layer: 12
+  width: 4096
+  depth: 2
+  seed: 2
+  dict_ratio: null
+  sparsity: 60
+  gpu_preference: "2"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.50, action: "skip_experiment"}
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/flat_gemma_w4096_s2/checkpoint.pt"
+  - "experiments/artifacts/flat_gemma_w4096_s2/metrics.tsv"
+  status: "pending"
+
+- id: "flat_gemma_w1024_s0"
+  description: "Flat SAE Gemma width 1024 seed 0 (matches depth-3 width)"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "flat_sae_on_activations"
+  site: "residual"
+  layer: 12
+  width: 1024
+  depth: 3
+  seed: 0
+  dict_ratio: null
+  sparsity: 60
+  gpu_preference: "2"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.50, action: "skip_experiment"}
+  estimated_gpu_hours: 0.2
+  outputs:
+  - "experiments/artifacts/flat_gemma_w1024_s0/checkpoint.pt"
+  - "experiments/artifacts/flat_gemma_w1024_s0/metrics.tsv"
+  status: "pending"
+
+- id: "flat_gemma_w1024_s1"
+  description: "Flat SAE Gemma width 1024 seed 1"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "flat_sae_on_activations"
+  site: "residual"
+  layer: 12
+  width: 1024
+  depth: 3
+  seed: 1
+  dict_ratio: null
+  sparsity: 60
+  gpu_preference: "2"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.50, action: "skip_experiment"}
+  estimated_gpu_hours: 0.2
+  outputs:
+  - "experiments/artifacts/flat_gemma_w1024_s1/checkpoint.pt"
+  - "experiments/artifacts/flat_gemma_w1024_s1/metrics.tsv"
+  status: "pending"
+
+- id: "flat_gemma_w1024_s2"
+  description: "Flat SAE Gemma width 1024 seed 2"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "flat_sae_on_activations"
+  site: "residual"
+  layer: 12
+  width: 1024
+  depth: 3
+  seed: 2
+  dict_ratio: null
+  sparsity: 60
+  gpu_preference: "2"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.50, action: "skip_experiment"}
+  estimated_gpu_hours: 0.2
+  outputs:
+  - "experiments/artifacts/flat_gemma_w1024_s2/checkpoint.pt"
+  - "experiments/artifacts/flat_gemma_w1024_s2/metrics.tsv"
+  status: "pending"
+
+- id: "flat_gpt2_w12288_s0"
+  description: "Flat SAE GPT-2 Small width 12288 seed 0 (matches depth-1 at ratio 1/4)"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "flat_sae_on_activations"
+  site: "residual"
+  layer: 8
+  width: 12288
+  depth: 1
+  seed: 0
+  dict_ratio: null
+  sparsity: 60
+  gpu_preference: "2"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.50, action: "skip_experiment"}
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/flat_gpt2_w12288_s0/checkpoint.pt"
+  - "experiments/artifacts/flat_gpt2_w12288_s0/metrics.tsv"
+  status: "pending"
+
+- id: "flat_gpt2_w12288_s1"
+  description: "Flat SAE GPT-2 Small width 12288 seed 1"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "flat_sae_on_activations"
+  site: "residual"
+  layer: 8
+  width: 12288
+  depth: 1
+  seed: 1
+  dict_ratio: null
+  sparsity: 60
+  gpu_preference: "2"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.50, action: "skip_experiment"}
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/flat_gpt2_w12288_s1/checkpoint.pt"
+  - "experiments/artifacts/flat_gpt2_w12288_s1/metrics.tsv"
+  status: "pending"
+
+- id: "flat_gpt2_w12288_s2"
+  description: "Flat SAE GPT-2 Small width 12288 seed 2"
+  base_model: "openai-community/gpt2"
+  level0_arch: "batchtopk"
+  level0_source: "flat_sae_on_activations"
+  site: "residual"
+  layer: 8
+  width: 12288
+  depth: 1
+  seed: 2
+  dict_ratio: null
+  sparsity: 60
+  gpu_preference: "2"
+  dependencies: []
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.50, action: "skip_experiment"}
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/flat_gpt2_w12288_s2/checkpoint.pt"
+  - "experiments/artifacts/flat_gpt2_w12288_s2/metrics.tsv"
+  status: "pending"
+
+# ============================================================
+# SECTION 6: Dictionary-ratio ablation on Gemma depth-1 BatchTopK (Experiment 4)
+# Ratios {1/2, 1/8} only; 1/4 and 1/21 are already covered by primary and anchor experiments
+# 2 ratios x 3 seeds = 6 rows
+# ============================================================
+
+- id: "gemma_batchtopk_ratio_half_d1_s0"
+  description: "Ratio ablation: Gemma BatchTopK depth 1 ratio 1/2 (32768 latents) seed 0"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 32768
+  depth: 1
+  seed: 0
+  dict_ratio: 0.5
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["l0_gemma_batchtopk"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  estimated_gpu_hours: 0.8
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_ratio_half_d1_s0/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_ratio_half_d1_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_ratio_half_d1_s1"
+  description: "Ratio ablation: Gemma BatchTopK depth 1 ratio 1/2 seed 1"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 32768
+  depth: 1
+  seed: 1
+  dict_ratio: 0.5
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: ["l0_gemma_batchtopk"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  estimated_gpu_hours: 0.8
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_ratio_half_d1_s1/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_ratio_half_d1_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_ratio_half_d1_s2"
+  description: "Ratio ablation: Gemma BatchTopK depth 1 ratio 1/2 seed 2"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 32768
+  depth: 1
+  seed: 2
+  dict_ratio: 0.5
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["l0_gemma_batchtopk"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  estimated_gpu_hours: 0.8
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_ratio_half_d1_s2/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_ratio_half_d1_s2/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_ratio_eighth_d1_s0"
+  description: "Ratio ablation: Gemma BatchTopK depth 1 ratio 1/8 (8192 latents) seed 0"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 8192
+  depth: 1
+  seed: 0
+  dict_ratio: 0.125
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["l0_gemma_batchtopk"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  estimated_gpu_hours: 0.4
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_ratio_eighth_d1_s0/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_ratio_eighth_d1_s0/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_ratio_eighth_d1_s1"
+  description: "Ratio ablation: Gemma BatchTopK depth 1 ratio 1/8 seed 1"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 8192
+  depth: 1
+  seed: 1
+  dict_ratio: 0.125
+  sparsity: 4
+  gpu_preference: "1"
+  dependencies: ["l0_gemma_batchtopk"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  estimated_gpu_hours: 0.4
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_ratio_eighth_d1_s1/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_ratio_eighth_d1_s1/metrics.tsv"
+  status: "pending"
+
+- id: "gemma_batchtopk_ratio_eighth_d1_s2"
+  description: "Ratio ablation: Gemma BatchTopK depth 1 ratio 1/8 seed 2"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "residual"
+  layer: 12
+  width: 8192
+  depth: 1
+  seed: 2
+  dict_ratio: 0.125
+  sparsity: 4
+  gpu_preference: "0"
+  dependencies: ["l0_gemma_batchtopk"]
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  estimated_gpu_hours: 0.4
+  outputs:
+  - "experiments/artifacts/gemma_batchtopk_ratio_eighth_d1_s2/checkpoint.pt"
+  - "experiments/artifacts/gemma_batchtopk_ratio_eighth_d1_s2/metrics.tsv"
+  status: "pending"
+
+# ============================================================
+# SECTION 7: Random-Gaussian null baselines at every depth for both base models
+# Gemma 3 depths + GPT-2 3 depths = 6 configs x 3 seeds = 18 rows
+# ============================================================
+
+- id: "null_gemma_d1_s0"
+  description: "Null: isotropic Gaussian in R^2304, depth-1 width 16384 seed 0"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 12
+  width: 16384
+  depth: 1
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/null_gemma_d1_s0/checkpoint.pt"
+  - "experiments/artifacts/null_gemma_d1_s0/metrics.tsv"
+  status: "pending"
+
+- id: "null_gemma_d1_s1"
+  description: "Null: Gaussian R^2304 depth-1 seed 1"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 12
+  width: 16384
+  depth: 1
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/null_gemma_d1_s1/checkpoint.pt"
+  - "experiments/artifacts/null_gemma_d1_s1/metrics.tsv"
+  status: "pending"
+
+- id: "null_gemma_d1_s2"
+  description: "Null: Gaussian R^2304 depth-1 seed 2"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 12
+  width: 16384
+  depth: 1
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.3
+  outputs:
+  - "experiments/artifacts/null_gemma_d1_s2/checkpoint.pt"
+  - "experiments/artifacts/null_gemma_d1_s2/metrics.tsv"
+  status: "pending"
+
+- id: "null_gemma_d2_s0"
+  description: "Null: Gaussian R^2304 depth-2 width 4096 seed 0"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 12
+  width: 4096
+  depth: 2
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.15
+  outputs:
+  - "experiments/artifacts/null_gemma_d2_s0/checkpoint.pt"
+  - "experiments/artifacts/null_gemma_d2_s0/metrics.tsv"
+  status: "pending"
+
+- id: "null_gemma_d2_s1"
+  description: "Null: Gaussian R^2304 depth-2 seed 1"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 12
+  width: 4096
+  depth: 2
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.15
+  outputs:
+  - "experiments/artifacts/null_gemma_d2_s1/checkpoint.pt"
+  - "experiments/artifacts/null_gemma_d2_s1/metrics.tsv"
+  status: "pending"
+
+- id: "null_gemma_d2_s2"
+  description: "Null: Gaussian R^2304 depth-2 seed 2"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 12
+  width: 4096
+  depth: 2
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.15
+  outputs:
+  - "experiments/artifacts/null_gemma_d2_s2/checkpoint.pt"
+  - "experiments/artifacts/null_gemma_d2_s2/metrics.tsv"
+  status: "pending"
+
+- id: "null_gemma_d3_s0"
+  description: "Null: Gaussian R^2304 depth-3 width 1024 seed 0"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 12
+  width: 1024
+  depth: 3
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/null_gemma_d3_s0/checkpoint.pt"
+  - "experiments/artifacts/null_gemma_d3_s0/metrics.tsv"
+  status: "pending"
+
+- id: "null_gemma_d3_s1"
+  description: "Null: Gaussian R^2304 depth-3 seed 1"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 12
+  width: 1024
+  depth: 3
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/null_gemma_d3_s1/checkpoint.pt"
+  - "experiments/artifacts/null_gemma_d3_s1/metrics.tsv"
+  status: "pending"
+
+- id: "null_gemma_d3_s2"
+  description: "Null: Gaussian R^2304 depth-3 seed 2"
+  base_model: "google/gemma-2-2b"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 12
+  width: 1024
+  depth: 3
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/null_gemma_d3_s2/checkpoint.pt"
+  - "experiments/artifacts/null_gemma_d3_s2/metrics.tsv"
+  status: "pending"
+
+- id: "null_gpt2_d1_s0"
+  description: "Null: Gaussian R^768 depth-1 width 12288 seed 0"
+  base_model: "openai-community/gpt2"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 8
+  width: 12288
+  depth: 1
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.2
+  outputs:
+  - "experiments/artifacts/null_gpt2_d1_s0/checkpoint.pt"
+  - "experiments/artifacts/null_gpt2_d1_s0/metrics.tsv"
+  status: "pending"
+
+- id: "null_gpt2_d1_s1"
+  description: "Null: Gaussian R^768 depth-1 seed 1"
+  base_model: "openai-community/gpt2"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 8
+  width: 12288
+  depth: 1
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.2
+  outputs:
+  - "experiments/artifacts/null_gpt2_d1_s1/checkpoint.pt"
+  - "experiments/artifacts/null_gpt2_d1_s1/metrics.tsv"
+  status: "pending"
+
+- id: "null_gpt2_d1_s2"
+  description: "Null: Gaussian R^768 depth-1 seed 2"
+  base_model: "openai-community/gpt2"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 8
+  width: 12288
+  depth: 1
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.2
+  outputs:
+  - "experiments/artifacts/null_gpt2_d1_s2/checkpoint.pt"
+  - "experiments/artifacts/null_gpt2_d1_s2/metrics.tsv"
+  status: "pending"
+
+- id: "null_gpt2_d2_s0"
+  description: "Null: Gaussian R^768 depth-2 width 3072 seed 0"
+  base_model: "openai-community/gpt2"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 8
+  width: 3072
+  depth: 2
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/null_gpt2_d2_s0/checkpoint.pt"
+  - "experiments/artifacts/null_gpt2_d2_s0/metrics.tsv"
+  status: "pending"
+
+- id: "null_gpt2_d2_s1"
+  description: "Null: Gaussian R^768 depth-2 seed 1"
+  base_model: "openai-community/gpt2"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 8
+  width: 3072
+  depth: 2
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/null_gpt2_d2_s1/checkpoint.pt"
+  - "experiments/artifacts/null_gpt2_d2_s1/metrics.tsv"
+  status: "pending"
+
+- id: "null_gpt2_d2_s2"
+  description: "Null: Gaussian R^768 depth-2 seed 2"
+  base_model: "openai-community/gpt2"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 8
+  width: 3072
+  depth: 2
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.1
+  outputs:
+  - "experiments/artifacts/null_gpt2_d2_s2/checkpoint.pt"
+  - "experiments/artifacts/null_gpt2_d2_s2/metrics.tsv"
+  status: "pending"
+
+- id: "null_gpt2_d3_s0"
+  description: "Null: Gaussian R^768 depth-3 width 768 seed 0"
+  base_model: "openai-community/gpt2"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 8
+  width: 768
+  depth: 3
+  seed: 0
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.05
+  outputs:
+  - "experiments/artifacts/null_gpt2_d3_s0/checkpoint.pt"
+  - "experiments/artifacts/null_gpt2_d3_s0/metrics.tsv"
+  status: "pending"
+
+- id: "null_gpt2_d3_s1"
+  description: "Null: Gaussian R^768 depth-3 seed 1"
+  base_model: "openai-community/gpt2"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 8
+  width: 768
+  depth: 3
+  seed: 1
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.05
+  outputs:
+  - "experiments/artifacts/null_gpt2_d3_s1/checkpoint.pt"
+  - "experiments/artifacts/null_gpt2_d3_s1/metrics.tsv"
+  status: "pending"
+
+- id: "null_gpt2_d3_s2"
+  description: "Null: Gaussian R^768 depth-3 seed 2"
+  base_model: "openai-community/gpt2"
+  level0_arch: "none"
+  level0_source: "random_gaussian"
+  site: "residual"
+  layer: 8
+  width: 768
+  depth: 3
+  seed: 2
+  dict_ratio: 0.25
+  sparsity: 4
+  gpu_preference: "4"
+  dependencies: []
+  decision_gates: []
+  estimated_gpu_hours: 0.05
+  outputs:
+  - "experiments/artifacts/null_gpt2_d3_s2/checkpoint.pt"
+  - "experiments/artifacts/null_gpt2_d3_s2/metrics.tsv"
+  status: "pending"
+
+# ============================================================
+# SECTION 8: Autointerp pass (Experiment 6 in proposal)
+# Uses Llama-3.1-8B-Instruct on dual RTX 3090s
+# Runs once across a random 200-feature subsample per SAE, after primary experiments complete
+# ============================================================
+
+- id: "autointerp_all"
+  description: "Autointerp: Llama-3.1-8B-Instruct scoring 200 features/SAE across depths and seeds, plus sense-blind vs conceptual classification"
+  base_model: "meta-llama/Llama-3.1-8B-Instruct"
+  level0_arch: "none"
+  level0_source: "meta-llama/Llama-3.1-8B-Instruct"
+  site: "n/a"
+  layer: -1
+  width: 0
+  depth: -1
+  seed: 0
+  dict_ratio: null
+  sparsity: 0
+  gpu_preference: "2,3"
+  dependencies:
+  - "gemma_jumprelu_d1_s0"
+  - "gemma_jumprelu_d1_s1"
+  - "gemma_jumprelu_d1_s2"
+  - "gemma_jumprelu_d2_s0"
+  - "gemma_jumprelu_d2_s1"
+  - "gemma_jumprelu_d2_s2"
+  - "gemma_batchtopk_d1_s0"
+  - "gemma_batchtopk_d1_s1"
+  - "gemma_batchtopk_d1_s2"
+  - "gemma_batchtopk_d2_s0"
+  - "gemma_batchtopk_d2_s1"
+  - "gemma_batchtopk_d2_s2"
+  - "gpt2_batchtopk_d1_s0"
+  - "gpt2_batchtopk_d1_s1"
+  - "gpt2_batchtopk_d1_s2"
+  - "gpt2_batchtopk_d2_s0"
+  - "gpt2_batchtopk_d2_s1"
+  - "gpt2_batchtopk_d2_s2"
+  decision_gates:
+  - {metric: "median_detection_score_vs_null_pct95", threshold: 1.0, action: "skip_experiment"}
+  estimated_gpu_hours: 5.0
+  outputs:
+  - "experiments/artifacts/autointerp_all/scores.tsv"
+  - "experiments/artifacts/autointerp_all/sense_blind_classification.tsv"
+  status: "pending"
+
+# ============================================================
+# SECTION 9: SimpleStories stretch goal (Experiment 7) -- conditional
+# ============================================================
+
+- id: "simplestories_stretch"
+  description: "Stretch: level-0 SAE on SimpleStories 4-layer bilinear MLP, recurse to depth 2, supervised probing"
+  base_model: "simplestories/bilinear-4L"
+  level0_arch: "batchtopk"
+  level0_source: "train_from_scratch"
+  site: "mlp_out"
+  layer: 2
+  width: 8192
+  depth: 0
+  seed: 0
+  dict_ratio: null
+  sparsity: 32
+  gpu_preference: "0"
+  dependencies:
+  - "gemma_batchtopk_d3_s2"
+  - "gpt2_batchtopk_d3_s2"
+  - "autointerp_all"
+  decision_gates:
+  - {metric: "variance_explained", threshold: 0.30, action: "skip_experiment"}
+  estimated_gpu_hours: 4.0
+  outputs:
+  - "experiments/artifacts/simplestories_stretch/checkpoint.pt"
+  - "experiments/artifacts/simplestories_stretch/probing.tsv"
+  status: "pending"
+  conditional:
+    stretch_if_time_permits: true

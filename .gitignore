@@ -1,0 +1,10 @@
+experiments/logs/
+experiments/artifacts/
+experiments/state.json
+*.pyc
+__pycache__/
+.venv/
+venv/
+wandb/
+.DS_Store
+tea_debug.log
