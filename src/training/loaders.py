@@ -1,16 +1,16 @@
 """Uniform loader for level-0 SAEs and their base models.
 
 Every training entry point that needs a level-0 SAE goes through
-`load_level0(...)`. Per training rule 6, no module under `src/training/` may
-load an SAE or base model by HuggingFace id directly; all such loads route
-here so revisions are pinned in one place and the return type is uniform
-across SAELens, TransformerLens, and the bartbussmann/BatchTopK release.
+``load_level0(...)``. Per training rule 6, no module under ``src/training/``
+may load an SAE or base model by HuggingFace id directly; all such loads
+route here so revisions are pinned in one place and the return type is
+uniform across SAELens, TransformerLens, and local checkpoints.
 
 Routing:
   level0_source                                 arch         handler
   ------------------------------------------    ----------   --------------------
   "google/gemma-scope-2b-pt-res-canonical"      jumprelu     SAELens release
-  "bartbussmann/BatchTopK"                      batchtopk    HF state_dict
+  "bartbussmann/BatchTopK"                      batchtopk    HF state_dict (404 — see PINNED_REVISIONS)
   "train_from_scratch"                          batchtopk    local checkpoint
   "flat_sae_on_activations"                     none         local checkpoint
   "random_gaussian"                             none         synthesized in memory
@@ -19,6 +19,7 @@ Routing:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 import torch
@@ -26,14 +27,33 @@ import torch
 Arch = Literal["jumprelu", "batchtopk", "none"]
 Site = Literal["residual", "mlp_out", "attn_out"]
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Revision SHAs for every external artifact the loader may fetch. Pinning lives
-# here (not in callers) so a single edit changes every downstream run. These
-# are filled in by the human on first successful fetch; the loader refuses to
-# load an unpinned source to prevent silent drift.
+# The EXPERIMENTS.yaml matrix uses the HF-id form "google/gemma-scope-..." as
+# `level0_source` while SAELens identifies the same release as just
+# "gemma-scope-2b-pt-res-canonical" in SAE.from_pretrained. Keep both.
+GEMMA_JUMPRELU_MATRIX_ID = "google/gemma-scope-2b-pt-res-canonical"
+GEMMA_JUMPRELU_SAELENS_RELEASE = "gemma-scope-2b-pt-res-canonical"
+
+
+# Pinned revisions for every external artifact. `_require_revision` refuses to
+# load unpinned sources to prevent silent drift across upstream updates.
+#
+# The SAELens release id `gemma-scope-2b-pt-res-canonical` is an internal
+# alias that maps to HF repo `google/gemma-scope-2b-pt-res` at the revision
+# below. The pin is expressed as the pair of (HF sha, sae_lens version) since
+# both influence which weights actually load.
 PINNED_REVISIONS: dict[str, str] = {
-    # "google/gemma-scope-2b-pt-res-canonical": "<sha>",
-    # "bartbussmann/BatchTopK": "<sha>",
+    # Gemma Scope JumpReLU SAEs, residual stream, layer 12 canonical width 65k.
+    # HF sha fetched on 2026-04-23 from google/gemma-scope-2b-pt-res.
+    GEMMA_JUMPRELU_MATRIX_ID: (
+        "hf:fd571b47c1c64851e9b1989792367b9babb4af63+sae_lens:6.39.0"
+    ),
+    # bartbussmann/BatchTopK is referenced by the matrix for the GPT-2 Small
+    # anchor rows, but the repo returns 404 on HF. Left unpinned so the
+    # loader explicitly raises with a clear error rather than silently
+    # resolving to something else. Human must edit EXPERIMENTS.yaml to point
+    # at the real release id.
 }
 
 
@@ -41,18 +61,10 @@ PINNED_REVISIONS: dict[str, str] = {
 class LoadedSAE:
     """Uniform handle for a level-0 SAE regardless of upstream format.
 
-    W_enc: (n_latents, d_model) encoder weight, fp16 on CPU.
-    W_dec: (n_latents, d_model) decoder weight, fp16 on CPU. Row i is the
-        decoder direction for latent i. Per training rule 9, rows are unit-
-        normalized before being fed to a meta-SAE; normalization happens at
-        the consumer, not here.
-    b_enc: (n_latents,) encoder bias, fp16 on CPU, or None.
-    b_dec: (d_model,) decoder bias, fp16 on CPU, or None.
-    arch: "jumprelu" | "batchtopk" | "none".
-    source: the level0_source string from EXPERIMENTS.yaml.
-    revision: pinned SHA from PINNED_REVISIONS, or "local" for checkpoints.
-    extra: arch-specific fields (e.g. {"k": 60} for BatchTopK,
-        {"threshold": Tensor} for JumpReLU).
+    Both W_enc and W_dec are shaped ``(n_latents, d_model)`` with fp16 storage
+    on CPU. Row i is the direction for latent i. Per training rule 9, rows
+    are unit-normalized by the consumer, not here (so MMCS is consistent with
+    raw weights).
     """
 
     W_enc: torch.Tensor
@@ -70,7 +82,7 @@ def _require_revision(source: str) -> str:
     if sha is None:
         raise RuntimeError(
             f"level0_source {source!r} has no pinned revision in "
-            f"PINNED_REVISIONS. Pin a SHA in src/training/loaders.py before "
+            f"PINNED_REVISIONS (src/training/loaders.py). Pin a SHA before "
             f"running; silent drift across upstream revisions would break "
             f"reproducibility."
         )
@@ -85,11 +97,11 @@ def load_level0(
 ) -> LoadedSAE:
     """Load a level-0 SAE for the given base model, layer, and site.
 
-    Dispatches on `level0_source` as documented at the top of this module.
+    Dispatches on ``level0_source`` as documented at the top of this module.
     Callers must not import SAELens / TransformerLens / HuggingFace APIs
     directly in training code; route through here (training rule 6).
     """
-    if level0_source == "google/gemma-scope-2b-pt-res-canonical":
+    if level0_source == GEMMA_JUMPRELU_MATRIX_ID:
         return _load_gemma_scope_jumprelu(base_model, layer, site)
     if level0_source == "bartbussmann/BatchTopK":
         return _load_bartbussmann_batchtopk(base_model, layer, site)
@@ -105,47 +117,118 @@ def load_level0(
     )
 
 
+def _gemma_scope_sae_id(layer: int, site: Site) -> str:
+    if site != "residual":
+        raise ValueError(
+            f"gemma-scope-2b-pt-res-canonical only ships residual SAEs; got site={site!r}"
+        )
+    # Canonical width 65k on layer 12 is the matrix default. Other layers are
+    # theoretically loadable but not in EXPERIMENTS.yaml.
+    return f"layer_{layer}/width_65k/canonical"
+
+
 def _load_gemma_scope_jumprelu(base_model: str, layer: int, site: Site) -> LoadedSAE:
-    """SAELens release `gemma-scope-2b-pt-res-canonical`, layer `layer`, width 65k."""
-    revision = _require_revision("google/gemma-scope-2b-pt-res-canonical")
-    raise NotImplementedError(
-        "Wire up SAELens load: "
-        "`SAE.from_pretrained('gemma-scope-2b-pt-res-canonical', "
-        "sae_id=f'layer_{layer}/width_65k/canonical', device='cpu')`, "
-        f"then wrap in LoadedSAE with revision={revision!r}. "
-        "base_model, site are validated here before return."
+    """SAELens release ``gemma-scope-2b-pt-res-canonical``."""
+    revision = _require_revision(GEMMA_JUMPRELU_MATRIX_ID)
+    if base_model != "google/gemma-2-2b":
+        raise ValueError(
+            f"gemma-scope SAE requires base_model 'google/gemma-2-2b', got {base_model!r}"
+        )
+    sae_id = _gemma_scope_sae_id(layer, site)
+
+    from sae_lens import SAE  # local import to avoid import cost when not needed
+
+    sae = SAE.from_pretrained(
+        release=GEMMA_JUMPRELU_SAELENS_RELEASE,
+        sae_id=sae_id,
+        device="cpu",
+    )
+    # SAELens returns W_enc=(d_in, n_latents) and W_dec=(n_latents, d_in).
+    # Transpose encoder so both matrices share (n_latents, d_in) shape.
+    W_enc = sae.W_enc.detach().to(torch.float16).T.contiguous()  # (n_latents, d_in)
+    W_dec = sae.W_dec.detach().to(torch.float16).contiguous()    # (n_latents, d_in)
+    b_enc = getattr(sae, "b_enc", None)
+    b_enc_t = b_enc.detach().to(torch.float16) if b_enc is not None else None
+    b_dec = getattr(sae, "b_dec", None)
+    b_dec_t = b_dec.detach().to(torch.float16) if b_dec is not None else None
+    extra: dict = {"d_in": int(sae.cfg.d_in), "d_sae": int(sae.cfg.d_sae)}
+    threshold = getattr(sae, "threshold", None)
+    if threshold is not None:
+        extra["threshold"] = threshold.detach().to(torch.float16)
+    return LoadedSAE(
+        W_enc=W_enc,
+        W_dec=W_dec,
+        b_enc=b_enc_t,
+        b_dec=b_dec_t,
+        arch="jumprelu",
+        source=GEMMA_JUMPRELU_MATRIX_ID,
+        revision=revision,
+        extra=extra,
     )
 
 
 def _load_bartbussmann_batchtopk(base_model: str, layer: int, site: Site) -> LoadedSAE:
-    """HuggingFace `bartbussmann/BatchTopK` state_dict for GPT-2 Small layer 8 residual."""
-    revision = _require_revision("bartbussmann/BatchTopK")
-    raise NotImplementedError(
-        "Wire up HF hub download of BatchTopK state_dict "
-        f"(revision={revision!r}), then wrap in LoadedSAE with arch='batchtopk' "
-        "and extra={'k': <from state_dict>}. Note: this release targets GPT-2 "
-        "Small layer 8 residual; assert (base_model, layer, site) match."
+    """HuggingFace ``bartbussmann/BatchTopK`` state_dict for GPT-2 Small layer 8 residual.
+
+    As of 2026-04-23 this repo returns 404; author has no public HF models.
+    The matrix references it for the Experiment 3 GPT-2 Small anchor rows;
+    the correct id needs a human edit to EXPERIMENTS.yaml. Until then this
+    function raises with a clear message so the runner marks those rows
+    failed and moves on.
+    """
+    raise FileNotFoundError(
+        "level0_source='bartbussmann/BatchTopK' does not resolve: the HF "
+        "repo returns 404 and no public model exists under that author. "
+        "Fix by editing EXPERIMENTS.yaml to point at the real release id "
+        "(Leask et al. 2025 Bussmann BatchTopK GPT-2 Small 49k width). "
+        f"[base_model={base_model}, layer={layer}, site={site}]"
     )
 
 
 def _load_local_batchtopk(base_model: str, layer: int, site: Site) -> LoadedSAE:
     """Locally trained BatchTopK level-0 checkpoint.
 
-    Reads from experiments/artifacts/l0_<base_model_tag>_batchtopk/checkpoint.pt.
+    Resolves to the ``l0_*`` artifact for the requested base_model. The
+    matrix currently defines only ``l0_gemma_batchtopk``; the function
+    raises if a checkpoint for a different lineage is requested until the
+    matrix defines the corresponding ``l0_*`` row.
     """
-    raise NotImplementedError(
-        "Wire up torch.load of the local train_from_scratch checkpoint "
-        "once src/training/train_level0_batchtopk.py exists. Expected path: "
-        "experiments/artifacts/l0_<tag>_batchtopk/checkpoint.pt. "
-        "revision='local' in the LoadedSAE."
+    if base_model == "google/gemma-2-2b":
+        ckpt_path = REPO_ROOT / "experiments" / "artifacts" / "l0_gemma_batchtopk" / "checkpoint.pt"
+    else:
+        raise ValueError(
+            f"train_from_scratch for base_model={base_model!r} is not defined in the matrix"
+        )
+    if not ckpt_path.exists():
+        raise FileNotFoundError(
+            f"level-0 BatchTopK checkpoint missing: {ckpt_path}. The "
+            f"l0_gemma_batchtopk row must be `complete` before its descendants can run."
+        )
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    # Local checkpoints use the same schema as train_null_sae.py / train_meta_sae.py:
+    # W_enc: (d_in, n_latents), W_dec: (n_latents, d_in)
+    W_enc = ckpt["W_enc"].to(torch.float16)  # (d_in, n_latents)
+    W_enc = W_enc.T.contiguous()             # -> (n_latents, d_in)
+    W_dec = ckpt["W_dec"].to(torch.float16).contiguous()  # (n_latents, d_in)
+    b_enc = ckpt.get("b_enc")
+    b_dec = ckpt.get("b_dec")
+    return LoadedSAE(
+        W_enc=W_enc,
+        W_dec=W_dec,
+        b_enc=b_enc.to(torch.float16) if b_enc is not None else None,
+        b_dec=b_dec.to(torch.float16) if b_dec is not None else None,
+        arch="batchtopk",
+        source="train_from_scratch",
+        revision="local",
+        extra={"experiment_id": ckpt.get("experiment_id", "")},
     )
 
 
 def _load_local_flat_sae(base_model: str, layer: int, site: Site) -> LoadedSAE:
     """Flat-SAE-on-activations local checkpoint (Experiment 6 comparator)."""
     raise NotImplementedError(
-        "Wire up torch.load for flat SAE checkpoint once "
-        "src/training/train_flat_sae.py exists. revision='local'."
+        "flat SAE comparator checkpoints are not produced yet. "
+        "train_flat_sae body needs the activation-caching pipeline first."
     )
 
 

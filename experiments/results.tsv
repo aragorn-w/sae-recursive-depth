@@ -1,1 +1,56 @@
 timestamp	experiment_id	status	base_model	level0_arch	depth	seed	width	variance_explained	pwmcc	mmcs	pwmcc_null_mean	pwmcc_null_std	dead_latent_fraction	gpu_hours	commit_sha	wandb_run_url	notes
+2026-04-23T06:29:47.705473+00:00	l0_gemma_batchtopk	scaffold_stub	google/gemma-2-2b	batchtopk	0	0	65536							1.457e-09	e0c9e1e		train_level0_batchtopk body not yet implemented
+2026-04-23T06:29:55.094203+00:00	gemma_jumprelu_anchor_d1_s0	scaffold_stub	google/gemma-2-2b	jumprelu	1	0	3121							1.52323e-09	e0c9e1e		train_meta_sae body not yet implemented
+2026-04-23T06:30:02.703693+00:00	gemma_jumprelu_anchor_d1_s1	scaffold_stub	google/gemma-2-2b	jumprelu	1	1	3121							1.05964e-09	e0c9e1e		train_meta_sae body not yet implemented
+2026-04-23T06:30:10.486048+00:00	gemma_jumprelu_anchor_d1_s2	scaffold_stub	google/gemma-2-2b	jumprelu	1	2	3121							1.457e-09	e0c9e1e		train_meta_sae body not yet implemented
+2026-04-23T06:30:17.921378+00:00	gpt2_batchtopk_anchor_d1_s0	scaffold_stub	openai-community/gpt2	batchtopk	1	0	2340							1.25832e-09	e0c9e1e		train_meta_sae body not yet implemented
+2026-04-23T06:30:25.301455+00:00	gpt2_batchtopk_anchor_d1_s1	scaffold_stub	openai-community/gpt2	batchtopk	1	1	2340							1.19209e-09	e0c9e1e		train_meta_sae body not yet implemented
+2026-04-23T06:30:32.618608+00:00	gpt2_batchtopk_anchor_d1_s2	scaffold_stub	openai-community/gpt2	batchtopk	1	2	2340							1.39078e-09	e0c9e1e		train_meta_sae body not yet implemented
+2026-04-23T06:30:40.025521+00:00	gemma_jumprelu_d1_s0	scaffold_stub	google/gemma-2-2b	jumprelu	1	0	16384							1.25832e-09	e0c9e1e		train_meta_sae body not yet implemented
+2026-04-23T06:30:47.403874+00:00	gemma_jumprelu_d1_s1	scaffold_stub	google/gemma-2-2b	jumprelu	1	1	16384							1.39078e-09	e0c9e1e		train_meta_sae body not yet implemented
+2026-04-23T06:30:54.796368+00:00	gemma_jumprelu_d1_s2	scaffold_stub	google/gemma-2-2b	jumprelu	1	2	16384							1.39078e-09	e0c9e1e		train_meta_sae body not yet implemented
+2026-04-23T06:31:02.201312+00:00	gpt2_batchtopk_d1_s0	scaffold_stub	openai-community/gpt2	batchtopk	1	0	12288							1.32455e-09	e0c9e1e		train_meta_sae body not yet implemented
+2026-04-23T06:31:09.521002+00:00	gpt2_batchtopk_d1_s1	scaffold_stub	openai-community/gpt2	batchtopk	1	1	12288							1.39078e-09	e0c9e1e		train_meta_sae body not yet implemented
+2026-04-23T06:31:16.869957+00:00	gpt2_batchtopk_d1_s2	scaffold_stub	openai-community/gpt2	batchtopk	1	2	12288							1.25832e-09	e0c9e1e		train_meta_sae body not yet implemented
+2026-04-23T06:31:24.205462+00:00	flat_gemma_w16384_s0	scaffold_stub	google/gemma-2-2b	batchtopk	1	0	16384							1.39078e-09	e0c9e1e		train_flat_sae body not yet implemented
+2026-04-23T06:31:31.548399+00:00	flat_gemma_w16384_s1	scaffold_stub	google/gemma-2-2b	batchtopk	1	1	16384							1.39078e-09	e0c9e1e		train_flat_sae body not yet implemented
+2026-04-23T06:31:38.895064+00:00	flat_gemma_w16384_s2	scaffold_stub	google/gemma-2-2b	batchtopk	1	2	16384							1.19209e-09	e0c9e1e		train_flat_sae body not yet implemented
+2026-04-23T06:31:46.272699+00:00	flat_gpt2_w12288_s0	scaffold_stub	openai-community/gpt2	batchtopk	1	0	12288							1.39078e-09	e0c9e1e		train_flat_sae body not yet implemented
+2026-04-23T06:31:53.604686+00:00	flat_gpt2_w12288_s1	scaffold_stub	openai-community/gpt2	batchtopk	1	1	12288							1.39078e-09	e0c9e1e		train_flat_sae body not yet implemented
+2026-04-23T06:32:01.005306+00:00	flat_gpt2_w12288_s2	scaffold_stub	openai-community/gpt2	batchtopk	1	2	12288							1.25832e-09	e0c9e1e		train_flat_sae body not yet implemented
+2026-04-23T06:32:08.380238+00:00	null_gemma_d1_s0	scaffold_stub	google/gemma-2-2b	none	1	0	16384							1.32455e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:32:15.742948+00:00	null_gemma_d1_s1	scaffold_stub	google/gemma-2-2b	none	1	1	16384							1.19209e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:32:23.117522+00:00	null_gemma_d1_s2	scaffold_stub	google/gemma-2-2b	none	1	2	16384							1.39078e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:32:30.500701+00:00	null_gpt2_d1_s0	scaffold_stub	openai-community/gpt2	none	1	0	12288							1.32455e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:32:38.178677+00:00	null_gpt2_d1_s1	scaffold_stub	openai-community/gpt2	none	1	1	12288							1.19209e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:32:45.561591+00:00	null_gpt2_d1_s2	scaffold_stub	openai-community/gpt2	none	1	2	12288							1.25832e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:32:52.973587+00:00	flat_gemma_w4096_s0	scaffold_stub	google/gemma-2-2b	batchtopk	2	0	4096							1.58946e-09	e0c9e1e		train_flat_sae body not yet implemented
+2026-04-23T06:33:00.379072+00:00	flat_gemma_w4096_s1	scaffold_stub	google/gemma-2-2b	batchtopk	2	1	4096							1.25832e-09	e0c9e1e		train_flat_sae body not yet implemented
+2026-04-23T06:33:07.766317+00:00	flat_gemma_w4096_s2	scaffold_stub	google/gemma-2-2b	batchtopk	2	2	4096							1.25832e-09	e0c9e1e		train_flat_sae body not yet implemented
+2026-04-23T06:33:15.153139+00:00	null_gemma_d2_s0	scaffold_stub	google/gemma-2-2b	none	2	0	4096							1.457e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:33:22.504547+00:00	null_gemma_d2_s1	scaffold_stub	google/gemma-2-2b	none	2	1	4096							1.25832e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:33:29.916612+00:00	null_gemma_d2_s2	scaffold_stub	google/gemma-2-2b	none	2	2	4096							1.52323e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:33:37.244444+00:00	null_gpt2_d2_s0	scaffold_stub	openai-community/gpt2	none	2	0	3072							1.25832e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:33:44.636164+00:00	null_gpt2_d2_s1	scaffold_stub	openai-community/gpt2	none	2	1	3072							1.32455e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:33:51.959816+00:00	null_gpt2_d2_s2	scaffold_stub	openai-community/gpt2	none	2	2	3072							1.32455e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:33:59.363319+00:00	flat_gemma_w1024_s0	scaffold_stub	google/gemma-2-2b	batchtopk	3	0	1024							1.32455e-09	e0c9e1e		train_flat_sae body not yet implemented
+2026-04-23T06:34:06.745468+00:00	flat_gemma_w1024_s1	scaffold_stub	google/gemma-2-2b	batchtopk	3	1	1024							1.39078e-09	e0c9e1e		train_flat_sae body not yet implemented
+2026-04-23T06:34:14.099352+00:00	flat_gemma_w1024_s2	scaffold_stub	google/gemma-2-2b	batchtopk	3	2	1024							1.32455e-09	e0c9e1e		train_flat_sae body not yet implemented
+2026-04-23T06:34:21.517124+00:00	null_gemma_d3_s0	scaffold_stub	google/gemma-2-2b	none	3	0	1024							1.25832e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:34:28.901391+00:00	null_gemma_d3_s1	scaffold_stub	google/gemma-2-2b	none	3	1	1024							1.32455e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:34:36.224151+00:00	null_gemma_d3_s2	scaffold_stub	google/gemma-2-2b	none	3	2	1024							1.25832e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:34:43.581448+00:00	null_gpt2_d3_s0	scaffold_stub	openai-community/gpt2	none	3	0	768							1.19209e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:34:50.978087+00:00	null_gpt2_d3_s1	scaffold_stub	openai-community/gpt2	none	3	1	768							1.12587e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T06:34:58.346316+00:00	null_gpt2_d3_s2	scaffold_stub	openai-community/gpt2	none	3	2	768							1.19209e-09	e0c9e1e		train_null_sae body not yet implemented
+2026-04-23T09:43:52.734176+00:00	smoke_null	smoke_ok	smoke	null	0	0	0							1.12587e-09	e0c9e1e		smoke: null SAE harness ok
+2026-04-23T09:43:54.544040+00:00	smoke_meta	smoke_ok	smoke	meta	0	0	0							1.12587e-09	e0c9e1e		smoke: meta-SAE harness ok
+2026-04-23T09:43:59.405314+00:00	smoke_null	smoke_ok	smoke	null	0	0	0							1.12587e-09	e0c9e1e		smoke: null SAE harness ok
+2026-04-23T09:44:01.160797+00:00	smoke_meta	smoke_ok	smoke	meta	0	0	0							1.25832e-09	e0c9e1e		smoke: meta-SAE harness ok
+2026-04-23T09:44:09.943020+00:00	null_gpt2_d3_s0	ok	openai-community/gpt2	none	3	0	768	0.0286512					0.00911456	0.000610924	e0c9e1e	https://wandb.ai/bluemon/sae-recursive-depth/runs/9hob3g7s	null trained on 3072 Gaussian samples, d_model=768
+2026-04-23T09:44:30.736541+00:00	gemma_jumprelu_anchor_d1_s0	failed	google/gemma-2-2b	jumprelu	1	0	3121							0.00037042	e0c9e1e	https://wandb.ai/bluemon/sae-recursive-depth/runs/0eknc925	ValueError: Unknown level0_source 'google/gemma-scope-2b-pt-res-canonical'. Allowed values are documented in EXPERIMENTS.yaml field semantics.
+2026-04-23T09:46:01.175365+00:00	gemma_jumprelu_anchor_d1_s0	ok	google/gemma-2-2b	jumprelu	1	0	3121	-0.000229001					1	0.00487099	e0c9e1e	https://wandb.ai/bluemon/sae-recursive-depth/runs/o4z2aydj	meta-SAE arch=jumprelu width=3121 k=4 parent=google/gemma-scope-2b-pt-res-canonical@hf:fd571b47c1c64851e9b1989792367b9babb4af63+sae_lens:6.39.0 parent_width=65536
+2026-04-23T09:47:52.917600+00:00	gemma_jumprelu_anchor_d1_s0	ok	google/gemma-2-2b	jumprelu	1	0	3121	0.00670862					0.16405	0.00468286	e0c9e1e	https://wandb.ai/bluemon/sae-recursive-depth/runs/c87s0w1h	meta-SAE arch=batchtopk (parent=jumprelu) width=3121 k=4 parent=google/gemma-scope-2b-pt-res-canonical@hf:fd571b47c1c64851e9b1989792367b9babb4af63+sae_lens:6.39.0 parent_width=65536
+2026-04-23T09:55:07.786557+00:00	gemma_jumprelu_anchor_d1_s0	ok	google/gemma-2-2b	jumprelu	1	0	3121	-0.378716					0.0948414	0.0847565	e0c9e1e	https://wandb.ai/bluemon/sae-recursive-depth/runs/phinvslb	meta-SAE arch=batchtopk (parent=jumprelu) width=3121 k=4 parent=google/gemma-scope-2b-pt-res-canonical@hf:fd571b47c1c64851e9b1989792367b9babb4af63+sae_lens:6.39.0 parent_width=65536
+2026-04-23T10:00:46.382438+00:00	gemma_jumprelu_anchor_d1_s0	ok	google/gemma-2-2b	jumprelu	1	0	3121	0.184972					0.037488	0.0845912	e0c9e1e	https://wandb.ai/bluemon/sae-recursive-depth/runs/hn1yi2n5	meta-SAE arch=batchtopk (parent=jumprelu) width=3121 k=4 parent=google/gemma-scope-2b-pt-res-canonical@hf:fd571b47c1c64851e9b1989792367b9babb4af63+sae_lens:6.39.0 parent_width=65536
+2026-04-23T10:02:13.616777+00:00	l0_gemma_batchtopk	scaffold_stub	google/gemma-2-2b	batchtopk	0	0	65536							1.52323e-09	e0c9e1e		train_level0_batchtopk body not yet implemented
+2026-04-23T10:02:15.424887+00:00	flat_gemma_w16384_s0	scaffold_stub	google/gemma-2-2b	batchtopk	1	0	16384							1.32455e-09	e0c9e1e		train_flat_sae body not yet implemented

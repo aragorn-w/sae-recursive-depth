@@ -237,12 +237,42 @@ evaluate_gates_and_apply() {
     return $?
 }
 
+append_notebook_entry() {
+    local exp_id="$1"
+    local ve="${2:-NA}"
+    local pwmcc="${3:-NA}"
+    local elapsed="${4:-0}"
+    local gate_note="${5:-}"
+    local stamp
+    stamp=$(date -Iseconds)
+    # lab_notebook.md is a protected path. The runner is forbidden from
+    # writing to it (CLAUDE.md rule 3). Append per-experiment machine notes
+    # to a sibling file the runner owns; the human promotes interesting
+    # entries into lab_notebook.md manually.
+    local runner_log="experiments/runner_notebook.md"
+    if [[ ! -f "$runner_log" ]]; then
+        printf "# Runner notebook\n\nAuto-appended by scripts/run_loop.sh. One row per completed experiment.\n\n" > "$runner_log"
+    fi
+    printf -- "- %s  **%s**  VE=%s  PW-MCC=%s  elapsed=%ss%s\n" "$stamp" "$exp_id" "$ve" "$pwmcc" "$elapsed" "${gate_note:+  gate=$gate_note}" >> "$runner_log"
+}
+
 commit_artifacts() {
     local exp_id="$1"
     local ve="${2:-NA}"
     local pwmcc="${3:-NA}"
-    git add experiments/artifacts/"$exp_id"/ experiments/results.tsv experiments/gates.tsv experiments/state.json experiments/logs/ 2>/dev/null || true
-    git commit -m "[SAE-LOOP] $exp_id complete VE=$ve PW-MCC=$pwmcc" --no-gpg-sign 2>&1 | tail -20 || true
+    # Only commit runner-owned paths. Immutability guard will block anything
+    # protected; we add only what the runner is allowed to touch.
+    git add \
+        "experiments/artifacts/$exp_id/" \
+        experiments/results.tsv \
+        experiments/gates.tsv \
+        experiments/state.json \
+        experiments/runner_notebook.md \
+        experiments/logs/ 2>/dev/null || true
+    # Use --allow-empty=false (default) and tolerate "nothing to commit".
+    if ! git diff --cached --quiet 2>/dev/null; then
+        git commit -m "[SAE-LOOP] $exp_id complete VE=$ve PW-MCC=$pwmcc" --no-gpg-sign 2>&1 | tail -20 || true
+    fi
 }
 
 run_one() {
@@ -306,40 +336,42 @@ run_one() {
         return 1
     fi
 
+    # The harness's finally: block has already appended exactly one row to
+    # results.tsv before the Python process returned. Do NOT append another
+    # row here. We only read the row back to populate ntfy + commit messages.
     local metrics_file="experiments/artifacts/$exp_id/metrics.tsv"
-    if [[ ! -f "$metrics_file" ]]; then
-        ntfy_send "high" "[SAE ERROR] $exp_id" "entrypoint exited 0 but no metrics.tsv"
-        local now
-        now=$(date -Iseconds)
-        printf "%s\t%s\tfailed\t\t\t\t\t\t\t\t\t\t\t\t%d\t\t\tno_metrics_file\n" "$now" "$exp_id" "$elapsed" >> "$RESULTS_TSV"
-        return 1
+    local ve="NA" pwmcc="NA"
+    if [[ -f "$metrics_file" ]]; then
+        # metrics.tsv contract (training rule 5): first line is header, second
+        # line is values. Training bodies put variance_explained in column 1
+        # and pwmcc in column 2 so these two reads work generically.
+        ve=$(awk -F'\t' 'NR==2 {print $1}' "$metrics_file" 2>/dev/null || echo "NA")
+        pwmcc=$(awk -F'\t' 'NR==2 {print $2}' "$metrics_file" 2>/dev/null || echo "NA")
+    else
+        ntfy_send "high" "[SAE WARN] $exp_id" "entrypoint exited 0 but no metrics.tsv (training-rule-5 violation); results.tsv row is still present from the harness"
     fi
 
-    local ve pwmcc
-    ve=$(awk -F'\t' 'NR==2 {print $1}' "$metrics_file" 2>/dev/null || echo "NA")
-    pwmcc=$(awk -F'\t' 'NR==2 {print $2}' "$metrics_file" 2>/dev/null || echo "NA")
+    local gate_rc=0
+    if [[ -f "$metrics_file" ]]; then
+        evaluate_gates_and_apply "$exp_id" "$metrics_file"
+        gate_rc=$?
+    fi
 
-    evaluate_gates_and_apply "$exp_id" "$metrics_file"
-    local gate_rc=$?
-
+    append_notebook_entry "$exp_id" "$ve" "$pwmcc" "$elapsed" ""
     commit_artifacts "$exp_id" "$ve" "$pwmcc"
-    local sha
-    sha=$(git rev-parse --short HEAD 2>/dev/null || echo "NA")
-
-    local now
-    now=$(date -Iseconds)
-    local base_model depth seed width
-    base_model=$(get_experiment_field "$exp_id" "base_model")
-    depth=$(get_experiment_field "$exp_id" "depth")
-    seed=$(get_experiment_field "$exp_id" "seed")
-    width=$(get_experiment_field "$exp_id" "width")
-    local level0_arch
-    level0_arch=$(get_experiment_field "$exp_id" "level0_arch")
-    printf "%s\t%s\tok\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\t\t\t\t%d\t%s\t\t\n" "$now" "$exp_id" "$base_model" "$level0_arch" "$depth" "$seed" "$width" "$ve" "$pwmcc" "" "$elapsed" "$sha" >> "$RESULTS_TSV"
 
     ntfy_send "low" "[SAE done] $exp_id" "VE=$ve PW-MCC=$pwmcc elapsed=${elapsed}s"
 
     if [[ $gate_rc -eq 42 ]]; then
+        if [[ "${SAE_LOOP_SOFT_HALT:-0}" == "1" ]]; then
+            # Soft-halt mode: a halt_and_notify gate fired, but the operator
+            # has opted to continue past it (e.g., an overnight dry run where
+            # an undertrained recipe is known to trip anchor gates). Loud
+            # ntfy, no runner exit; the row's results.tsv entry already
+            # records the metric, so morning triage is unaffected.
+            ntfy_send "urgent" "[SAE HALT-SOFT] $exp_id" "halt_and_notify gate triggered but SAE_LOOP_SOFT_HALT=1; continuing"
+            return 0
+        fi
         ntfy_send "urgent" "[SAE HALT] $exp_id" "halt_and_notify gate triggered; runner stopping"
         write_state_field "runner_status" "halted"
         return 42
