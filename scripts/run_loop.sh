@@ -32,7 +32,7 @@ init_state() {
     local pid=$$
     local now
     now=$(date -Iseconds)
-    python3 - "$STATE_FILE" "$pid" "$now" <<'PY'
+    uv run python - "$STATE_FILE" "$pid" "$now" <<'PY'
 import json, sys, os
 path, pid, now = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 if os.path.exists(path):
@@ -59,7 +59,7 @@ PY
 write_state_field() {
     local key="$1"
     local value="$2"
-    python3 - "$STATE_FILE" "$key" "$value" <<'PY'
+    uv run python - "$STATE_FILE" "$key" "$value" <<'PY'
 import json, sys, os
 path, key, value = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(path) as f:
@@ -85,7 +85,7 @@ ntfy_send() {
 }
 
 select_next_pending() {
-    python3 - <<'PY'
+    uv run python - <<'PY'
 import yaml, json, sys, os, datetime
 with open("EXPERIMENTS.yaml") as f:
     matrix = yaml.safe_load(f)
@@ -156,7 +156,7 @@ PY
 get_experiment_field() {
     local exp_id="$1"
     local field="$2"
-    python3 - "$exp_id" "$field" <<'PY'
+    uv run python - "$exp_id" "$field" <<'PY'
 import yaml, sys, json
 exp_id, field = sys.argv[1], sys.argv[2]
 with open("EXPERIMENTS.yaml") as f:
@@ -208,7 +208,7 @@ dispatch_entrypoint() {
 evaluate_gates_and_apply() {
     local exp_id="$1"
     local metrics_file="$2"
-    python3 scripts/evaluate_gates.py --experiment-id "$exp_id" --metrics-file "$metrics_file" --state-file "$STATE_FILE" --gates-tsv "$GATES_TSV"
+    uv run python scripts/evaluate_gates.py --experiment-id "$exp_id" --metrics-file "$metrics_file" --state-file "$STATE_FILE" --gates-tsv "$GATES_TSV"
     return $?
 }
 
@@ -240,7 +240,7 @@ run_one() {
     while [[ $attempt -lt 3 ]]; do
         attempt=$((attempt + 1))
         echo "=== attempt $attempt for $exp_id ===" >> "$log_file"
-        if CUDA_VISIBLE_DEVICES="$gpu_pref" python3 -m "$entrypoint" --experiment-id "$exp_id" 2>&1 | tee -a "$log_file"; then
+        if CUDA_VISIBLE_DEVICES="$gpu_pref" uv run python -m "$entrypoint" --experiment-id "$exp_id" 2>&1 | tee -a "$log_file"; then
             success=1
             break
         fi

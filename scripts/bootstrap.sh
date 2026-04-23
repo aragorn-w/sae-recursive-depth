@@ -3,13 +3,21 @@
 set -euo pipefail
 
 REPO_ROOT="/home/wanga/school/math498c/sae-recursive-depth"
-PY="${PY:-python3}"
 NTFY_TOPIC="${NTFY_TOPIC:-sae-wanga-research}"
 
 cd "$REPO_ROOT"
 
 echo "[bootstrap] repo root: $REPO_ROOT"
-echo "[bootstrap] python: $($PY --version)"
+
+# uv install check
+# uv is the project's python package manager; see https://docs.astral.sh/uv/
+if ! command -v uv >/dev/null 2>&1; then
+    echo "[bootstrap] uv not found; installing via official installer"
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    # shellcheck disable=SC1090
+    source "$HOME/.local/bin/env" 2>/dev/null || export PATH="$HOME/.local/bin:$PATH"
+fi
+echo "[bootstrap] uv: $(uv --version)"
 echo ""
 
 # directory scaffolding
@@ -20,23 +28,11 @@ mkdir -p scripts/git-hooks
 mkdir -p .claude/rules .claude/commands
 touch src/__init__.py src/training/__init__.py src/metrics/__init__.py src/analysis/__init__.py src/data/__init__.py
 
-# python dependencies
-# using --break-system-packages because Ubuntu 24.04 enforces PEP 668 on the system python
-# flag reference: https://peps.python.org/pep-0668/
-$PY -m pip install --break-system-packages --upgrade pip
-$PY -m pip install --break-system-packages \
-    "sae-lens>=6.0" \
-    "transformer-lens>=2.0" \
-    "transformers>=4.45" \
-    "torch" \
-    "wandb" \
-    "pyyaml" \
-    "scipy" \
-    "numpy" \
-    "pandas" \
-    "matplotlib" \
-    "tqdm" \
-    "huggingface_hub"
+# python environment
+# uv sync creates/updates .venv from pyproject.toml and resolves uv.lock deterministically
+# reference: https://docs.astral.sh/uv/reference/cli/#uv-sync
+uv sync
+UV_PYTHON="$REPO_ROOT/.venv/bin/python"
 
 # git hook installation
 # core.hooksPath tells git to look for hooks in the named directory instead of .git/hooks
@@ -47,8 +43,8 @@ chmod +x scripts/pre_commit_immutability_guard.sh scripts/git-hooks/pre-commit
 
 # cron heartbeat
 # schedule: 0 8,20 * * * with TZ=America/Denver
-# -l prints current crontab, temp file is edited and reinstalled
-CRON_LINE="0 8,20 * * * TZ=America/Denver cd $REPO_ROOT && $PY scripts/heartbeat.py >> experiments/logs/heartbeat.log 2>&1"
+# uv run ensures the heartbeat runs inside the project venv without pre-activation
+CRON_LINE="0 8,20 * * * TZ=America/Denver cd $REPO_ROOT && $HOME/.local/bin/uv run python scripts/heartbeat.py >> experiments/logs/heartbeat.log 2>&1"
 if ! crontab -l 2>/dev/null | grep -F "scripts/heartbeat.py" >/dev/null; then
     (crontab -l 2>/dev/null; echo "$CRON_LINE") | crontab -
     echo "[bootstrap] installed cron heartbeat at 8am and 8pm America/Denver"
@@ -68,8 +64,8 @@ if [ "$GPU_COUNT" -ne 5 ]; then
     echo "[bootstrap] WARNING: expected 5 GPUs, found $GPU_COUNT"
 fi
 
-# cuda runtime check through torch
-$PY -c "import torch; print(f'[bootstrap] torch {torch.__version__}, cuda available={torch.cuda.is_available()}, device count={torch.cuda.device_count()}')"
+# cuda runtime check through torch (inside the uv-managed venv)
+"$UV_PYTHON" -c "import torch; print(f'[bootstrap] torch {torch.__version__}, cuda available={torch.cuda.is_available()}, device count={torch.cuda.device_count()}')"
 
 # ntfy subscription test
 # curl flags: --max-time limits total seconds, --silent hides progress bar, --show-error still prints errors, --fail returns non-zero on HTTP >= 400
@@ -91,10 +87,10 @@ echo ""
 echo "Manual steps you still need to do:"
 echo ""
 echo "  1. W&B login:"
-echo "       wandb login"
+echo "       uv run wandb login"
 echo ""
 echo "  2. HuggingFace login (required for Gemma-2-2B gated access):"
-echo "       huggingface-cli login"
+echo "       uv run huggingface-cli login"
 echo "     Then accept the Gemma license at https://huggingface.co/google/gemma-2-2b"
 echo ""
 echo "  3. Subscribe to ntfy topic on your phone and desktop:"
@@ -102,7 +98,7 @@ echo "       https://ntfy.sh/$NTFY_TOPIC"
 echo "     Confirm you received the bootstrap-complete notification just sent."
 echo ""
 echo "  4. Verify the cron heartbeat fires by running manually:"
-echo "       python3 scripts/heartbeat.py"
+echo "       uv run python scripts/heartbeat.py"
 echo ""
 echo "  5. When ready to start the autonomous loop:"
 echo "       tmux new-session -d -s sae-runner 'bash scripts/run_loop.sh'"

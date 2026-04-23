@@ -110,13 +110,15 @@ Day zero. Infrastructure is complete; no experiments have been run yet. See `lab
 
 ## Setup
 
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). `bootstrap.sh` installs uv if it is missing, then resolves `pyproject.toml` into a project-local `.venv/`.
+
 ```bash
 bash scripts/bootstrap.sh
 ```
 
-This installs Python dependencies, registers the immutability-guard git hook, schedules the twice-daily cron heartbeat, verifies CUDA, and prints the remaining manual steps (W&B login, HuggingFace login for the gated Gemma-2-2B repo, ntfy subscription to topic `sae-wanga-research`).
+This resolves Python dependencies via `uv sync`, registers the immutability-guard git hook, schedules the twice-daily cron heartbeat, verifies CUDA, and prints the remaining manual steps (W&B login, HuggingFace login for the gated Gemma-2-2B repo, ntfy subscription to topic `sae-wanga-research`).
 
-See `scripts/bootstrap.sh` for the full dependency list and flag explanations.
+Ad-hoc scripts run inside the managed environment with `uv run`, e.g. `uv run python scripts/heartbeat.py`. The full dependency list lives in `pyproject.toml`; `scripts/bootstrap.sh` has the non-Python setup details.
 
 ## Running the autonomous loop
 
