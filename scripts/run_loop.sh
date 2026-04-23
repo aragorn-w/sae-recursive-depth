@@ -10,6 +10,12 @@ set -o pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# GPU policy: translates EXPERIMENTS.yaml `gpu_preference` values to the
+# current host's actual CUDA indices. Edit scripts/gpu_policy.sh (not
+# EXPERIMENTS.yaml) when host layout or contention changes.
+# shellcheck source=scripts/gpu_policy.sh
+source "$REPO_ROOT/scripts/gpu_policy.sh"
+
 STATE_FILE="experiments/state.json"
 RESULTS_TSV="experiments/results.tsv"
 GATES_TSV="experiments/gates.tsv"
@@ -19,6 +25,17 @@ HALT_FILE="experiments/HALT"
 NTFY_TOPIC="sae-wanga-research"
 
 mkdir -p "$LOG_DIR" experiments/artifacts
+
+# In-session skip set. run_one appends an exp_id here on EXIT_SCAFFOLD_STUB
+# (99); select_next_pending honors it. Cleared on every fresh invocation so
+# scaffold stubs can be re-attempted after real bodies land without
+# restarting anything heavier.
+SESSION_SKIPFILE="${SESSION_SKIPFILE:-$(mktemp -t sae_session_skips.XXXXXX)}"
+export SESSION_SKIPFILE
+: > "$SESSION_SKIPFILE"
+trap 'rm -f "$SESSION_SKIPFILE"' EXIT
+
+EXIT_SCAFFOLD_STUB=99
 
 if [[ ! -f "$RESULTS_TSV" ]]; then
     printf "timestamp\texperiment_id\tstatus\tbase_model\tlevel0_arch\tdepth\tseed\twidth\tvariance_explained\tpwmcc\tmmcs\tpwmcc_null_mean\tpwmcc_null_std\tdead_latent_fraction\tgpu_hours\tcommit_sha\twandb_run_url\tnotes\n" > "$RESULTS_TSV"
@@ -110,6 +127,14 @@ if os.path.exists("experiments/state.json"):
         state = json.load(f)
 skipped = set(state.get("skipped_by_gate", []))
 
+# In-session skip set: ids that returned EXIT_SCAFFOLD_STUB during this
+# runner invocation. Keeps the outer loop from picking the same stub twice.
+session_skip = set()
+skipfile = os.environ.get("SESSION_SKIPFILE")
+if skipfile and os.path.exists(skipfile):
+    with open(skipfile) as f:
+        session_skip = {line.strip() for line in f if line.strip()}
+
 today = datetime.date.today()
 deadline = datetime.date(2026, 5, 5)
 days_until_deadline = (deadline - today).days
@@ -124,7 +149,7 @@ def dep_ok(exp):
 
 eligible = []
 for e in rows:
-    if e["id"] in complete or e["id"] in skipped:
+    if e["id"] in complete or e["id"] in skipped or e["id"] in session_skip:
         continue
     if failed_count.get(e["id"], 0) >= 1:
         continue
@@ -224,12 +249,14 @@ run_one() {
     local exp_id="$1"
     local gpu_pref
     gpu_pref=$(get_experiment_field "$exp_id" "gpu_preference")
+    local gpu_actual
+    gpu_actual=$(resolve_gpu "$gpu_pref")
     local entrypoint
     entrypoint=$(dispatch_entrypoint "$exp_id")
     local log_file="$LOG_DIR/${exp_id}_$(date +%Y%m%d_%H%M%S).log"
 
     write_state_field "current_experiment_id" "$exp_id"
-    ntfy_send "low" "[SAE start] $exp_id" "entrypoint=$entrypoint gpu=$gpu_pref"
+    ntfy_send "low" "[SAE start] $exp_id" "entrypoint=$entrypoint gpu=$gpu_actual (yaml=$gpu_pref)"
 
     local backoffs=(30 300 1800)
     local attempt=0
@@ -237,14 +264,25 @@ run_one() {
     local start_epoch
     start_epoch=$(date +%s)
 
+    local rc=0
     while [[ $attempt -lt 3 ]]; do
         attempt=$((attempt + 1))
         echo "=== attempt $attempt for $exp_id ===" >> "$log_file"
-        if CUDA_VISIBLE_DEVICES="$gpu_pref" uv run python -m "$entrypoint" --experiment-id "$exp_id" 2>&1 | tee -a "$log_file"; then
+        CUDA_VISIBLE_DEVICES="$gpu_actual" uv run python -m "$entrypoint" --experiment-id "$exp_id" 2>&1 | tee -a "$log_file"
+        rc=${PIPESTATUS[0]}
+        if [[ $rc -eq 0 ]]; then
             success=1
             break
         fi
-        local rc=${PIPESTATUS[0]}
+        if [[ $rc -eq $EXIT_SCAFFOLD_STUB ]]; then
+            # Entry point is a scaffold stub. Silent-skip: no ntfy, no TSV
+            # row from the shell side (Python already wrote its stub row),
+            # no commit, no gate eval. Add the id to the session skip set
+            # so the outer loop does not re-pick it.
+            echo "$exp_id" >> "$SESSION_SKIPFILE"
+            echo "scaffold_stub exit from $exp_id; skipping for this session" >> "$log_file"
+            return 0
+        fi
         echo "attempt $attempt failed rc=$rc" >> "$log_file"
         if grep -qiE "CUDA error|cublas|NCCL|out of memory|OutOfMemoryError" "$log_file"; then
             nvidia-smi >> "$log_file" 2>&1 || true

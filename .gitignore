@@ -7,3 +7,4 @@ __pycache__/
 venv/
 wandb/
 .DS_Store
+tea_debug.log

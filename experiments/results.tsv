@@ -1,0 +1,1 @@
+timestamp	experiment_id	status	base_model	level0_arch	depth	seed	width	variance_explained	pwmcc	mmcs	pwmcc_null_mean	pwmcc_null_std	dead_latent_fraction	gpu_hours	commit_sha	wandb_run_url	notes

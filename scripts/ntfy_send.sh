@@ -10,7 +10,15 @@ PRIORITY="${1:-default}"
 TITLE="${2:-[SAE] untitled}"
 MESSAGE="${3:-}"
 TAGS="${4:-}"
-TOPIC="${NTFY_TOPIC:-sae-wanga-research}"
+TOPIC="${NTFY_TOPIC-sae-wanga-research}"
+
+# Kill switch: NTFY_TOPIC="" (exported as empty) disables notifications for
+# this invocation. Used during bring-up / scaffold iteration so scaffold
+# stubs don't burn the phone. An unset variable still resolves to the
+# default topic.
+if [[ -z "$TOPIC" ]]; then
+    exit 0
+fi
 
 CURL_ARGS=(
     -s
