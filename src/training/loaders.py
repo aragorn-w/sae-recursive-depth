@@ -56,6 +56,42 @@ PINNED_REVISIONS: dict[str, str] = {
     # at the real release id.
 }
 
+# Base-model weight pins. Distinct from PINNED_REVISIONS to keep "level-0 SAE
+# release" and "base LM weights" cleanly separated.
+PINNED_BASE_MODEL_REVISIONS: dict[str, str] = {
+    "google/gemma-2-2b": "c5ebcd40d208330abc697524c919956e692655cf",
+    "openai-community/gpt2": "607a30d783dfa663caf39e06633721c8d4cfcd7e",
+    "meta-llama/Llama-3.1-8B-Instruct": "0e9e39f249a16976918f6564b8830bc894c89659",
+}
+
+
+def load_base_model(model_id: str, *, device: str | torch.device = "cuda"):
+    """Return a TransformerLens HookedTransformer for ``model_id``.
+
+    Per training rule 6, all base-model loads go through this helper so the
+    revision sha is pinned in one place. Returns the model in eval mode with
+    gradients disabled for inference (callers re-enable as needed).
+    """
+    rev = PINNED_BASE_MODEL_REVISIONS.get(model_id)
+    if rev is None:
+        raise RuntimeError(
+            f"base model {model_id!r} has no pinned revision in "
+            f"PINNED_BASE_MODEL_REVISIONS (src/training/loaders.py)."
+        )
+    from transformer_lens import HookedTransformer
+
+    # transformer_lens does not expose a revision kwarg in from_pretrained;
+    # we pre-fetch the weights at the pinned sha so HF's cache resolves to
+    # that revision when transformer_lens calls into it.
+    from huggingface_hub import snapshot_download
+
+    snapshot_download(repo_id=model_id, revision=rev)
+    model = HookedTransformer.from_pretrained(model_id, device=str(device))
+    model.eval()
+    for p in model.parameters():
+        p.requires_grad_(False)
+    return model
+
 
 @dataclass(frozen=True)
 class LoadedSAE:

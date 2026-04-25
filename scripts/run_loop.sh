@@ -306,8 +306,10 @@ commit_artifacts() {
     # protected; we add only what the runner is allowed to touch.
     git add \
         "experiments/artifacts/$exp_id/" \
+        "experiments/artifacts/_summary/" \
         experiments/results.tsv \
         experiments/gates.tsv \
+        experiments/pwmcc_posthoc.tsv \
         experiments/state.json \
         experiments/runner_notebook.md \
         experiments/logs/ 2>/dev/null || true
@@ -404,6 +406,17 @@ run_one() {
         evaluate_gates_and_apply "$exp_id" "$metrics_file"
         gate_rc=$?
     fi
+
+    # Post-hoc PW-MCC: fast, idempotent. Computes pairwise PW-MCC across
+    # any (cell, all 3 seeds complete) tuples that haven't been processed yet,
+    # and writes to experiments/pwmcc_posthoc.tsv. Failures here don't block
+    # the runner.
+    uv run python scripts/posthoc_pwmcc.py >> "$log_file" 2>&1 || true
+
+    # Refresh figures + summary tables. Idempotent; reads results.tsv +
+    # pwmcc_posthoc.tsv and rewrites _summary/{figures,tables}/*. Failures
+    # here don't block the runner.
+    uv run python -m src.analysis.figures >> "$log_file" 2>&1 || true
 
     append_notebook_entry "$exp_id" "$ve" "$pwmcc" "$elapsed" ""
     commit_artifacts "$exp_id" "$ve" "$pwmcc"
