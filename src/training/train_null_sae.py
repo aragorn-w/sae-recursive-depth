@@ -72,6 +72,11 @@ def main() -> None:
             n_samples, d_model, seed=gen_seed, device=_device(), dtype=torch.float32
         )
 
+        # Init b_dec to data mean (~0 for isotropic Gaussian, but keeps the
+        # recipe identical to meta-SAE training).
+        with torch.no_grad():
+            sae.b_dec.data = x_train.mean(dim=0).to(sae.b_dec.dtype)
+
         batch_size = min(4096, n_samples)
         n_epochs = 20
         n_batches = max(1, n_samples // batch_size)
@@ -96,6 +101,13 @@ def main() -> None:
                         )
                     opt.zero_grad(set_to_none=True)
                     loss.backward()
+                    # Bricken parallel-grad removal on W_dec (matches meta-SAE
+                    # recipe so null and signal use the same training contract).
+                    if sae.W_dec.grad is not None:
+                        with torch.no_grad():
+                            W_unit = F.normalize(sae.W_dec.data, dim=1)
+                            radial = (sae.W_dec.grad * W_unit).sum(dim=1, keepdim=True) * W_unit
+                            sae.W_dec.grad.sub_(radial)
                     grad_norm = torch.nn.utils.clip_grad_norm_(sae.parameters(), max_norm=1.0)
                     if grad_norm.item() > 1000:
                         _write_diverged(ctx, f"grad_norm={grad_norm.item():.3g}", curves_path)
@@ -103,6 +115,8 @@ def main() -> None:
                             f"null training diverged (grad norm) epoch={epoch} batch={b}"
                         )
                     opt.step()
+                    with torch.no_grad():
+                        sae.W_dec.data = F.normalize(sae.W_dec.data, dim=1)
                 # One curve entry per epoch (final-batch loss).
                 cf.write(f"{epoch}\t{n_batches - 1}\t{loss.item():.6g}\n")
                 if ctx.wandb_run is not None:

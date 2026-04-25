@@ -109,17 +109,28 @@ with open("EXPERIMENTS.yaml") as f:
 with open("experiments/results.tsv") as f:
     lines = f.read().strip().split("\n")
 header = lines[0].split("\t")
-complete = set()
-failed_count = {}
+# Per SPEC §8.2 ("the later timestamp wins when querying"), each experiment
+# is judged by the LATEST status row in results.tsv. This lets a row
+# transition complete -> stale -> complete across recipe revisions without
+# breaking the append-only contract.
+latest = {}  # exp_id -> (timestamp, status)
 for line in lines[1:]:
     if not line.strip():
         continue
     parts = line.split("\t")
     rec = dict(zip(header, parts))
-    if rec.get("status") == "ok":
-        complete.add(rec["experiment_id"])
-    elif rec.get("status") == "failed":
-        failed_count[rec["experiment_id"]] = failed_count.get(rec["experiment_id"], 0) + 1
+    eid = rec.get("experiment_id", "")
+    ts = rec.get("timestamp", "")
+    if not eid:
+        continue
+    prev = latest.get(eid)
+    if prev is None or ts > prev[0]:
+        latest[eid] = (ts, rec.get("status", ""))
+complete = {eid for eid, (_, st) in latest.items() if st == "ok"}
+failed_count = {}
+for eid, (_, st) in latest.items():
+    if st == "failed":
+        failed_count[eid] = failed_count.get(eid, 0) + 1
 
 state = {}
 if os.path.exists("experiments/state.json"):
@@ -286,7 +297,9 @@ run_one() {
     local log_file="$LOG_DIR/${exp_id}_$(date +%Y%m%d_%H%M%S).log"
 
     write_state_field "current_experiment_id" "$exp_id"
-    ntfy_send "low" "[SAE start] $exp_id" "entrypoint=$entrypoint gpu=$gpu_actual (yaml=$gpu_pref)"
+    # Per-experiment start/done notifications were too noisy. Heartbeat cron
+    # already shows runner progress; the runner only ntfys on blockers,
+    # gate fires, and milestone transitions now.
 
     local backoffs=(30 300 1800)
     local attempt=0
@@ -360,16 +373,17 @@ run_one() {
     append_notebook_entry "$exp_id" "$ve" "$pwmcc" "$elapsed" ""
     commit_artifacts "$exp_id" "$ve" "$pwmcc"
 
-    ntfy_send "low" "[SAE done] $exp_id" "VE=$ve PW-MCC=$pwmcc elapsed=${elapsed}s"
+    # Per-experiment done ntfy removed (too noisy); heartbeat reports
+    # progress every 12h.
 
     if [[ $gate_rc -eq 42 ]]; then
         if [[ "${SAE_LOOP_SOFT_HALT:-0}" == "1" ]]; then
             # Soft-halt mode: a halt_and_notify gate fired, but the operator
-            # has opted to continue past it (e.g., an overnight dry run where
-            # an undertrained recipe is known to trip anchor gates). Loud
-            # ntfy, no runner exit; the row's results.tsv entry already
-            # records the metric, so morning triage is unaffected.
-            ntfy_send "urgent" "[SAE HALT-SOFT] $exp_id" "halt_and_notify gate triggered but SAE_LOOP_SOFT_HALT=1; continuing"
+            # opted to continue past it. Quiet — soft-halt fires often during
+            # recipe shakedown and would dominate the ntfy stream. The fired
+            # gate is recorded in experiments/gates.tsv and the row's
+            # results.tsv entry retains the metric. Heartbeat reports the
+            # most recent gate outcome too.
             return 0
         fi
         ntfy_send "urgent" "[SAE HALT] $exp_id" "halt_and_notify gate triggered; runner stopping"

@@ -32,4 +32,18 @@ These rules apply to every file under `src/analysis/`. Analysis code turns `expe
 
 ## Column dictionary (read-only from results.tsv)
 
-Analysis code may assume these columns exist and are populated for relevant rows: `experiment_id`, `timestamp_utc`, `base_model`, `level0_arch`, `depth`, `seed`, `dict_ratio`, `width`, `variance_explained`, `dead_latent_fraction`, `pwmcc`, `mmcs`, `null_pwmcc_mean`, `null_pwmcc_std`, `unmatched_fraction`, `median_detection_score`, `null_median_detection_score_pct95`, `gpu_hours`, `wandb_run_id`.
+The authoritative `experiments/results.tsv` schema is SPEC.md §8.2:
+`timestamp`, `experiment_id`, `status`, `base_model`, `level0_arch`, `depth`,
+`seed`, `width`, `variance_explained`, `pwmcc`, `mmcs`, `pwmcc_null_mean`,
+`pwmcc_null_std`, `dead_latent_fraction`, `gpu_hours`, `commit_sha`,
+`wandb_run_url`, `notes`. Analysis code reading `results.tsv` must use these
+exact names.
+
+Per-experiment diagnostic columns live in
+`experiments/artifacts/<experiment_id>/metrics.tsv` (training rule 5). The
+sidecar carries `variance_explained_heldout_tokens`, `unmatched_fraction`,
+`pwmcc_encoder_only`, `pwmcc_decoder_only`, `median_detection_score`,
+`null_detection_score_p95`, plus the headline metrics so gate evaluation can
+read either file. `dict_ratio` is in `EXPERIMENTS.yaml` per row, not in the
+TSV; analysis code joins to the matrix on `experiment_id` if it needs the
+ratio.
