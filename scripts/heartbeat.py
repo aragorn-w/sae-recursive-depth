@@ -1,10 +1,25 @@
 #!/usr/bin/env python3
+"""Heartbeat + watchdog for the autopilot.
+
+Cron-driven (8am/8pm America/Denver). Speaks plain English to a research
+manager. Only escalates to a high-priority notification when the autopilot
+is genuinely stuck — operational errors auto-retry silently, gates fire
+silently. Otherwise it's an informational status ping.
+
+Escalation conditions (any one triggers high priority):
+  - Runner crashed (process died unexpectedly).
+  - Stalled: nothing has finished in 24h+ and there's still work to do.
+"""
+
+from __future__ import annotations
 
 import datetime
 import json
 import os
+import re
 import subprocess
 import sys
+from collections import Counter
 
 import yaml
 
@@ -16,17 +31,23 @@ RESULTS_TSV = "experiments/results.tsv"
 STATE_FILE = "experiments/state.json"
 NTFY_TOPIC = "sae-wanga-research"
 
-def load_matrix():
-    with open(MATRIX_FILE) as f:
+STALL_HOURS = 24
+MAX_ATTEMPTS = 10
+
+
+def _read_yaml(path: str) -> dict:
+    with open(path) as f:
         return yaml.safe_load(f)
 
-def load_state():
+
+def _read_state() -> dict:
     if not os.path.exists(STATE_FILE):
         return {}
     with open(STATE_FILE) as f:
         return json.load(f)
 
-def load_results():
+
+def _read_results() -> list[dict[str, str]]:
     if not os.path.exists(RESULTS_TSV):
         return []
     with open(RESULTS_TSV) as f:
@@ -41,72 +62,255 @@ def load_results():
         rows.append(dict(zip(header, parts)))
     return rows
 
-def summarize():
-    matrix = load_matrix()
-    state = load_state()
-    results = load_results()
 
-    total = len(matrix["experiments"])
-    nonstretch_total = sum(1 for e in matrix["experiments"] if not (e.get("conditional") or {}).get("stretch_if_time_permits"))
+def _parse_iso(ts: str) -> datetime.datetime | None:
+    if not ts:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(ts)
+    except ValueError:
+        return None
 
-    complete_ids = {r["experiment_id"] for r in results if r.get("status") == "ok"}
-    failed_ids = {r["experiment_id"] for r in results if r.get("status") == "failed"}
-    skipped_ids = set(state.get("skipped_by_gate", []))
+
+def _pid_alive(pid) -> bool:
+    if not pid:
+        return False
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except (ProcessLookupError, PermissionError, ValueError, TypeError):
+        return False
+
+
+# ---------- humanizing ----------
+
+def humanize_id(eid: str) -> str:
+    """Turn a matrix id like ``gemma_jumprelu_anchor_d1_s2`` into a sentence."""
+    if not eid:
+        return "(none)"
+    if eid == "autointerp_all":
+        return "feature interpretation pass (Llama-3.1-8B over all SAEs)"
+    if eid == "simplestories_stretch":
+        return "SimpleStories stretch experiment"
+    if eid.startswith("l0_"):
+        # l0_gemma_batchtopk, l0_gpt2_batchtopk
+        m = re.match(r"l0_(gemma|gpt2)_(batchtopk|jumprelu)", eid)
+        if m:
+            base = "Gemma-2-2B" if m.group(1) == "gemma" else "GPT-2 Small"
+            arch = {"jumprelu": "JumpReLU", "batchtopk": "BatchTopK"}[m.group(2)]
+            return f"level-0 {arch} SAE training on {base}"
+    if eid.startswith("null_"):
+        # null_gemma_d3_s2
+        m = re.match(r"null_(gemma|gpt2)_d(\d+)_s(\d+)", eid)
+        if m:
+            base = "Gemma" if m.group(1) == "gemma" else "GPT-2"
+            return f"null baseline ({base}, depth {m.group(2)}, seed {m.group(3)})"
+    if eid.startswith("flat_"):
+        # flat_gemma_w16384_s0
+        m = re.match(r"flat_(gemma|gpt2)_w(\d+)_s(\d+)", eid)
+        if m:
+            base = "Gemma" if m.group(1) == "gemma" else "GPT-2"
+            return f"flat-SAE control ({base}, width {m.group(2)}, seed {m.group(3)})"
+    # Recursive meta-SAE: <base>_<arch>[_anchor]_d<depth>_s<seed>
+    m = re.match(r"(gemma|gpt2)_(jumprelu|batchtopk)(_anchor)?_d(\d+)_s(\d+)", eid)
+    if m:
+        base = "Gemma" if m.group(1) == "gemma" else "GPT-2"
+        arch = {"jumprelu": "JumpReLU", "batchtopk": "BatchTopK"}[m.group(2)]
+        anchor = " (Bussmann ratio anchor)" if m.group(3) else ""
+        return f"{base} {arch} meta-SAE depth {m.group(4)} seed {m.group(5)}{anchor}"
+    return eid
+
+
+def humanize_metric(metric: str) -> str:
+    return {
+        "variance_explained": "variance explained",
+        "variance_explained_deviation_from_leask": "variance explained vs Leask reference",
+        "pwmcc_vs_null_sigma": "seed-stability vs null baseline (sigma)",
+        "dead_latent_fraction": "dead latent fraction",
+        "median_detection_score_vs_null_pct95": "interpretability score vs null 95th %ile",
+    }.get(metric, metric.replace("_", " "))
+
+
+def fmt_hours_ago(dt: datetime.datetime | None, now: datetime.datetime) -> str:
+    if dt is None:
+        return "no completions yet"
+    delta = now - dt
+    h = delta.total_seconds() / 3600.0
+    if h < 1:
+        return f"{int(delta.total_seconds() / 60)} minutes ago"
+    if h < 48:
+        return f"{h:.1f} hours ago"
+    return f"{h / 24:.1f} days ago"
+
+
+def fmt_pct(s: str) -> str:
+    """Turn '0.184972' into '18%'. Leaves non-numeric as-is."""
+    try:
+        return f"{round(float(s) * 100)}%"
+    except (ValueError, TypeError):
+        return s
+
+
+# ---------- summary ----------
+
+def summarize() -> tuple[str, str, str]:
+    matrix = _read_yaml(MATRIX_FILE)
+    state = _read_state()
+    rows = _read_results()
+
+    # Latest-row-wins per SPEC §8.2.
+    latest: dict[str, dict[str, str]] = {}
+    attempts: Counter[str] = Counter()
+    latest_ok: tuple[datetime.datetime, dict[str, str]] | None = None
+    for r in rows:
+        eid = r.get("experiment_id", "")
+        if not eid:
+            continue
+        ts = r.get("timestamp", "")
+        prev = latest.get(eid)
+        if prev is None or ts > prev.get("timestamp", ""):
+            latest[eid] = r
+        if r.get("status") == "failed":
+            attempts[eid] += 1
+        if r.get("status") == "ok":
+            t = _parse_iso(ts)
+            if t is not None and (latest_ok is None or t > latest_ok[0]):
+                latest_ok = (t, r)
+
+    nonstretch_ids = {
+        e["id"] for e in matrix["experiments"]
+        if not (e.get("conditional") or {}).get("stretch_if_time_permits")
+    }
+    complete_ids = {eid for eid, r in latest.items() if r.get("status") == "ok"}
+    n_done = len(complete_ids & nonstretch_ids)
+    n_total = len(nonstretch_ids)
+    n_remaining = n_total - n_done
+    permanently_failed = {eid for eid, n in attempts.items() if n >= MAX_ATTEMPTS}
 
     gpu_seconds = 0.0
-    for r in results:
+    for r in rows:
         try:
             gpu_seconds += float(r.get("gpu_hours") or 0)
         except ValueError:
             pass
     gpu_hours = gpu_seconds / 3600.0
 
-    current = state.get("current_experiment_id") or "none"
     runner_status = state.get("runner_status") or "unknown"
-    last_gate = state.get("most_recent_gate_outcome") or {}
-    blockers = state.get("blockers") or []
+    runner_alive = _pid_alive(state.get("pid"))
+    runner_crashed = runner_status == "running" and not runner_alive
 
-    last_heartbeat = state.get("last_heartbeat") or "never"
-
-    gate_line = "none"
-    if last_gate.get("experiment_id"):
-        gate_line = f"{last_gate['experiment_id']} {last_gate.get('metric','')}={last_gate.get('value','')} -> {last_gate.get('action','')}"
-
-    now_denver = datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M %Z")
-
-    msg = (
-        f"Heartbeat {now_denver}\n"
-        f"Runner: {runner_status} (current: {current})\n"
-        f"Complete: {len(complete_ids)}/{total} ({len(complete_ids) - len(skipped_ids - complete_ids)}/{nonstretch_total} non-stretch)\n"
-        f"Failed: {len(failed_ids)}  Skipped-by-gate: {len(skipped_ids)}\n"
-        f"GPU-hours used: {gpu_hours:.2f}\n"
-        f"Most recent gate: {gate_line}\n"
-        f"Blockers: {', '.join(blockers) if blockers else 'none'}\n"
-        f"Last state update: {last_heartbeat}"
+    now = datetime.datetime.now().astimezone()
+    last_progress_dt = latest_ok[0] if latest_ok else None
+    hours_since = (now - last_progress_dt).total_seconds() / 3600.0 if last_progress_dt else None
+    stalled = (
+        n_remaining > 0
+        and hours_since is not None
+        and hours_since > STALL_HOURS
     )
 
-    title = f"[SAE heartbeat {datetime.datetime.now().strftime('%H:%M')}] {len(complete_ids)}/{total} complete, {gpu_hours:.1f} GPU-hrs"
-    return title, msg, runner_status
+    # Pretty fragments.
+    current = humanize_id(state.get("current_experiment_id") or "")
+    last_done_line = ""
+    if latest_ok is not None:
+        r = latest_ok[1]
+        ve = fmt_pct(r.get("variance_explained", ""))
+        last_done_line = (
+            f"Last finished: {humanize_id(r.get('experiment_id', ''))}, "
+            f"variance explained {ve} ({fmt_hours_ago(last_progress_dt, now)})."
+        )
 
-def post(title, msg):
+    last_gate_line = ""
+    g = state.get("most_recent_gate_outcome") or {}
+    if g.get("experiment_id"):
+        try:
+            v = f"{float(g.get('value', 0)):.3g}"
+        except (ValueError, TypeError):
+            v = str(g.get("value", ""))
+        last_gate_line = (
+            f"Most recent quality flag: {humanize_id(g['experiment_id'])} — "
+            f"{humanize_metric(g.get('metric', ''))} = {v} "
+            f"(threshold {g.get('threshold', '')})."
+        )
+
+    # Decide priority and headline.
+    if runner_crashed:
+        priority = "high"
+        title = "Autopilot crashed — needs restart"
+        lines = [
+            "The autopilot process is no longer running, but its state file "
+            "says it should be. To restart: tmux attach -t sae-loop, or kill "
+            "and relaunch from the project directory.",
+            f"Progress at crash: {n_done} of {n_total} experiments done.",
+        ]
+    elif stalled:
+        priority = "high"
+        title = f"Autopilot stalled — no progress in {hours_since:.0f}h"
+        lines = [
+            f"Nothing has finished in {hours_since:.1f} hours, but "
+            f"{n_remaining} experiments are still pending.",
+            f"Currently working on: {current}.",
+            "This usually means a configuration issue (missing dependency, "
+            "wrong model id) that the auto-retry can't resolve. Worth a look.",
+        ]
+    else:
+        priority = "min"
+        if n_remaining == 0:
+            title = "Autopilot done — all experiments resolved"
+        else:
+            title = f"Autopilot status: {n_done} of {n_total} experiments done"
+        lines = []
+        if runner_status == "running":
+            lines.append(f"Currently training: {current}.")
+        elif runner_status == "idle":
+            lines.append(
+                "Runner is idle (no eligible work right now). It stays alive "
+                "and will pick up retries or new dependencies automatically."
+            )
+        elif runner_status == "paused":
+            lines.append("Runner paused (PAUSE file present).")
+        elif runner_status == "halted":
+            lines.append("Runner is halted. Restart needed.")
+        if last_done_line:
+            lines.append(last_done_line)
+        if last_gate_line:
+            lines.append(last_gate_line)
+        if permanently_failed:
+            sample = sorted(permanently_failed)[:3]
+            extra = f" plus {len(permanently_failed) - 3} more" if len(permanently_failed) > 3 else ""
+            lines.append(
+                f"Experiments given up on after many retries: "
+                f"{', '.join(humanize_id(x) for x in sample)}{extra}. "
+                f"These need attention when convenient."
+            )
+        lines.append(f"Total compute used so far: {gpu_hours:.1f} GPU-hours.")
+
+    body = "\n".join(lines)
+    return title, body, priority
+
+
+def post(title: str, body: str, priority: str) -> None:
     try:
         subprocess.run(
-            ["curl", "-s", "-X", "POST",
-             "-H", f"Title: {title}",
-             "-H", "Priority: min",
-             "-H", "Tags: heart",
-             "-d", msg,
-             f"https://ntfy.sh/{NTFY_TOPIC}"],
-            check=False, timeout=10,
+            [
+                "curl", "-s", "-X", "POST",
+                "-H", f"Title: {title}",
+                "-H", f"Priority: {priority}",
+                "-H", "Tags: heart" if priority == "min" else "Tags: warning",
+                "-d", body,
+                f"https://ntfy.sh/{NTFY_TOPIC}",
+            ],
+            check=False,
+            timeout=10,
         )
     except Exception as e:
         print(f"ntfy post failed: {e}", file=sys.stderr)
 
-def main():
-    title, msg, _ = summarize()
+
+def main() -> None:
+    title, body, priority = summarize()
     print(title)
-    print(msg)
-    post(title, msg)
+    print(body)
+    post(title, body, priority)
 
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE) as f:
@@ -116,6 +320,7 @@ def main():
         with open(tmp, "w") as f:
             json.dump(state, f, indent=2)
         os.replace(tmp, STATE_FILE)
+
 
 if __name__ == "__main__":
     main()
