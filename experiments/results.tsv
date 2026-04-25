@@ -149,3 +149,12 @@ timestamp	experiment_id	status	base_model	level0_arch	depth	seed	width	variance_
 2026-04-25T09:04:20.682211+00:00	gemma_jumprelu_d2_s2	stale_recipe_v1	google/gemma-2-2b	jumprelu	2	2	4096										marked stale: recipe v2 (b_dec init + Bricken parallel grad + 30k steps)
 2026-04-25T09:04:20.682211+00:00	gemma_jumprelu_d3_s0	stale_recipe_v1	google/gemma-2-2b	jumprelu	3	0	1024										marked stale: recipe v2 (b_dec init + Bricken parallel grad + 30k steps)
 2026-04-25T09:04:20.682211+00:00	gemma_jumprelu_d3_s2	stale_recipe_v1	google/gemma-2-2b	jumprelu	3	2	1024										marked stale: recipe v2 (b_dec init + Bricken parallel grad + 30k steps)
+2026-04-25T09:08:37.560633+00:00	gpt2_batchtopk_anchor_d1_s0	stale_matrix_v2															marked stale: matrix v2 redirects bartbussmann -> train_from_scratch; awaits l0_gpt2_batchtopk
+2026-04-25T09:08:37.560633+00:00	gpt2_batchtopk_anchor_d1_s1	stale_matrix_v2															marked stale: matrix v2 redirects bartbussmann -> train_from_scratch; awaits l0_gpt2_batchtopk
+2026-04-25T09:08:37.560633+00:00	gpt2_batchtopk_anchor_d1_s2	stale_matrix_v2															marked stale: matrix v2 redirects bartbussmann -> train_from_scratch; awaits l0_gpt2_batchtopk
+2026-04-25T09:08:37.560633+00:00	gpt2_batchtopk_d1_s0	stale_matrix_v2															marked stale: matrix v2 redirects bartbussmann -> train_from_scratch; awaits l0_gpt2_batchtopk
+2026-04-25T09:08:37.560633+00:00	gpt2_batchtopk_d1_s1	stale_matrix_v2															marked stale: matrix v2 redirects bartbussmann -> train_from_scratch; awaits l0_gpt2_batchtopk
+2026-04-25T09:08:37.560633+00:00	gpt2_batchtopk_d1_s2	stale_matrix_v2															marked stale: matrix v2 redirects bartbussmann -> train_from_scratch; awaits l0_gpt2_batchtopk
+2026-04-25T09:08:47.767114+00:00	l0_gemma_batchtopk	scaffold_stub	google/gemma-2-2b	batchtopk	0	0	65536							1.19209e-09	dd3efa0		train_level0_batchtopk body not yet implemented
+2026-04-25T09:08:55.151039+00:00	l0_gpt2_batchtopk	scaffold_stub	openai-community/gpt2	batchtopk	0	0	49152							1.58946e-09	dd3efa0		train_level0_batchtopk body not yet implemented
+2026-04-25T09:19:40.483603+00:00	gemma_jumprelu_anchor_d1_s0	ok	google/gemma-2-2b	jumprelu	1	0	3121	0.191562					0.037488	0.177176	dd3efa0	https://wandb.ai/bluemon/sae-recursive-depth/runs/y96f9orw	meta-SAE arch=batchtopk (parent=jumprelu) width=3121 k=4 parent=google/gemma-scope-2b-pt-res-canonical@hf:fd571b47c1c64851e9b1989792367b9babb4af63+sae_lens:6.39.0 parent_width=65536
