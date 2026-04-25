@@ -158,3 +158,9 @@ timestamp	experiment_id	status	base_model	level0_arch	depth	seed	width	variance_
 2026-04-25T09:08:47.767114+00:00	l0_gemma_batchtopk	scaffold_stub	google/gemma-2-2b	batchtopk	0	0	65536							1.19209e-09	dd3efa0		train_level0_batchtopk body not yet implemented
 2026-04-25T09:08:55.151039+00:00	l0_gpt2_batchtopk	scaffold_stub	openai-community/gpt2	batchtopk	0	0	49152							1.58946e-09	dd3efa0		train_level0_batchtopk body not yet implemented
 2026-04-25T09:19:40.483603+00:00	gemma_jumprelu_anchor_d1_s0	ok	google/gemma-2-2b	jumprelu	1	0	3121	0.191562					0.037488	0.177176	dd3efa0	https://wandb.ai/bluemon/sae-recursive-depth/runs/y96f9orw	meta-SAE arch=batchtopk (parent=jumprelu) width=3121 k=4 parent=google/gemma-scope-2b-pt-res-canonical@hf:fd571b47c1c64851e9b1989792367b9babb4af63+sae_lens:6.39.0 parent_width=65536
+2026-04-25T09:31:11.212994+00:00	l0_gemma_batchtopk	scaffold_stub	google/gemma-2-2b	batchtopk	0	0	65536							1.32455e-09	c50581d		train_level0_batchtopk body not yet implemented
+2026-04-25T09:31:18.608433+00:00	l0_gpt2_batchtopk	scaffold_stub	openai-community/gpt2	batchtopk	0	0	49152							1.457e-09	c50581d		train_level0_batchtopk body not yet implemented
+2026-04-25T09:50:36.472910+00:00	smoke_batchtopk	smoke_ok	smoke	batchtopk	0	0	0							1.25832e-09	2b9dc77		smoke: level0 batchtopk harness ok
+2026-04-25T09:50:38.496427+00:00	smoke_flat	smoke_ok	smoke	flat	0	0	0							1.457e-09	2b9dc77		smoke: flat SAE harness ok
+2026-04-25T09:50:40.347359+00:00	smoke_autointerp	smoke_ok	smoke	autointerp	0	0	0							1.39078e-09	2b9dc77		smoke: autointerp harness ok
+2026-04-25T09:51:01.855064+00:00	gemma_jumprelu_anchor_d1_s1	ok	google/gemma-2-2b	jumprelu	1	1	3121	0.190676					0.037488	0.326554	2b9dc77	https://wandb.ai/bluemon/sae-recursive-depth/runs/6cetufwp	meta-SAE arch=batchtopk (parent=jumprelu) width=3121 k=4 parent=google/gemma-scope-2b-pt-res-canonical@hf:fd571b47c1c64851e9b1989792367b9babb4af63+sae_lens:6.39.0 parent_width=65536
