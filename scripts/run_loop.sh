@@ -286,7 +286,9 @@ run_one() {
     local log_file="$LOG_DIR/${exp_id}_$(date +%Y%m%d_%H%M%S).log"
 
     write_state_field "current_experiment_id" "$exp_id"
-    ntfy_send "low" "[SAE start] $exp_id" "entrypoint=$entrypoint gpu=$gpu_actual (yaml=$gpu_pref)"
+    # Per-experiment start/done notifications were too noisy. Heartbeat cron
+    # already shows runner progress; the runner only ntfys on blockers,
+    # gate fires, and milestone transitions now.
 
     local backoffs=(30 300 1800)
     local attempt=0
@@ -360,16 +362,17 @@ run_one() {
     append_notebook_entry "$exp_id" "$ve" "$pwmcc" "$elapsed" ""
     commit_artifacts "$exp_id" "$ve" "$pwmcc"
 
-    ntfy_send "low" "[SAE done] $exp_id" "VE=$ve PW-MCC=$pwmcc elapsed=${elapsed}s"
+    # Per-experiment done ntfy removed (too noisy); heartbeat reports
+    # progress every 12h.
 
     if [[ $gate_rc -eq 42 ]]; then
         if [[ "${SAE_LOOP_SOFT_HALT:-0}" == "1" ]]; then
             # Soft-halt mode: a halt_and_notify gate fired, but the operator
-            # has opted to continue past it (e.g., an overnight dry run where
-            # an undertrained recipe is known to trip anchor gates). Loud
-            # ntfy, no runner exit; the row's results.tsv entry already
-            # records the metric, so morning triage is unaffected.
-            ntfy_send "urgent" "[SAE HALT-SOFT] $exp_id" "halt_and_notify gate triggered but SAE_LOOP_SOFT_HALT=1; continuing"
+            # opted to continue past it. Quiet — soft-halt fires often during
+            # recipe shakedown and would dominate the ntfy stream. The fired
+            # gate is recorded in experiments/gates.tsv and the row's
+            # results.tsv entry retains the metric. Heartbeat reports the
+            # most recent gate outcome too.
             return 0
         fi
         ntfy_send "urgent" "[SAE HALT] $exp_id" "halt_and_notify gate triggered; runner stopping"
