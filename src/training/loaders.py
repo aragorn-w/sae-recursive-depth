@@ -188,21 +188,22 @@ def _load_bartbussmann_batchtopk(base_model: str, layer: int, site: Site) -> Loa
 def _load_local_batchtopk(base_model: str, layer: int, site: Site) -> LoadedSAE:
     """Locally trained BatchTopK level-0 checkpoint.
 
-    Resolves to the ``l0_*`` artifact for the requested base_model. The
-    matrix currently defines only ``l0_gemma_batchtopk``; the function
-    raises if a checkpoint for a different lineage is requested until the
-    matrix defines the corresponding ``l0_*`` row.
+    Resolves to the ``l0_*`` artifact for the requested base_model.
     """
-    if base_model == "google/gemma-2-2b":
-        ckpt_path = REPO_ROOT / "experiments" / "artifacts" / "l0_gemma_batchtopk" / "checkpoint.pt"
-    else:
+    base_to_artifact = {
+        "google/gemma-2-2b": "l0_gemma_batchtopk",
+        "openai-community/gpt2": "l0_gpt2_batchtopk",
+    }
+    artifact_id = base_to_artifact.get(base_model)
+    if artifact_id is None:
         raise ValueError(
             f"train_from_scratch for base_model={base_model!r} is not defined in the matrix"
         )
+    ckpt_path = REPO_ROOT / "experiments" / "artifacts" / artifact_id / "checkpoint.pt"
     if not ckpt_path.exists():
         raise FileNotFoundError(
             f"level-0 BatchTopK checkpoint missing: {ckpt_path}. The "
-            f"l0_gemma_batchtopk row must be `complete` before its descendants can run."
+            f"{artifact_id} row must be `complete` before its descendants can run."
         )
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     # Local checkpoints use the same schema as train_null_sae.py / train_meta_sae.py:

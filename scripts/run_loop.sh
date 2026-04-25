@@ -109,17 +109,28 @@ with open("EXPERIMENTS.yaml") as f:
 with open("experiments/results.tsv") as f:
     lines = f.read().strip().split("\n")
 header = lines[0].split("\t")
-complete = set()
-failed_count = {}
+# Per SPEC §8.2 ("the later timestamp wins when querying"), each experiment
+# is judged by the LATEST status row in results.tsv. This lets a row
+# transition complete -> stale -> complete across recipe revisions without
+# breaking the append-only contract.
+latest = {}  # exp_id -> (timestamp, status)
 for line in lines[1:]:
     if not line.strip():
         continue
     parts = line.split("\t")
     rec = dict(zip(header, parts))
-    if rec.get("status") == "ok":
-        complete.add(rec["experiment_id"])
-    elif rec.get("status") == "failed":
-        failed_count[rec["experiment_id"]] = failed_count.get(rec["experiment_id"], 0) + 1
+    eid = rec.get("experiment_id", "")
+    ts = rec.get("timestamp", "")
+    if not eid:
+        continue
+    prev = latest.get(eid)
+    if prev is None or ts > prev[0]:
+        latest[eid] = (ts, rec.get("status", ""))
+complete = {eid for eid, (_, st) in latest.items() if st == "ok"}
+failed_count = {}
+for eid, (_, st) in latest.items():
+    if st == "failed":
+        failed_count[eid] = failed_count.get(eid, 0) + 1
 
 state = {}
 if os.path.exists("experiments/state.json"):

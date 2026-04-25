@@ -134,7 +134,6 @@ def main() -> None:
         x_train = W_dec_parent.to(device)  # (parent_width, d_model), unit rows
 
         sae = build_sae(arch=arch, d_in=d_model, n_latents=width, sparsity=sparsity).to(device)
-        opt = torch.optim.Adam(sae.parameters(), lr=3e-4, betas=(0.9, 0.999), weight_decay=0.0)
 
         # Hold out 10% for evaluation; training signals unit-normalized
         # decoder rows (not activations), so a random split within the parent
@@ -146,10 +145,20 @@ def main() -> None:
         train_idx = perm[:n_train].to(device)
         eval_idx = perm[n_train:].to(device)
 
-        # Step-budget-driven training: 20k gradient steps regardless of
+        # Init b_dec to the training-set mean. For unit-normalized parent
+        # decoder rows this is typically near-zero, but it removes the
+        # constant-offset error from the very first step instead of forcing
+        # the optimizer to discover it. Standard SAE practice (Bricken et al.
+        # 2023, Anthropic SAE training methodology).
+        with torch.no_grad():
+            sae.b_dec.data = x_train[train_idx].mean(dim=0).to(sae.b_dec.dtype)
+
+        opt = torch.optim.Adam(sae.parameters(), lr=3e-4, betas=(0.9, 0.999), weight_decay=0.0)
+
+        # Step-budget-driven training: 30k gradient steps regardless of
         # dataset size, so tiny depth-3 inputs (parent_width=4096) still get
         # enough updates to converge. Adam lr=3e-4 per training rule 8.
-        total_steps = 20000
+        total_steps = 30000
         batch_size = min(4096, max(256, n_train // 4))
         log_every = max(1, total_steps // 100)
 
@@ -174,15 +183,21 @@ def main() -> None:
                         raise RuntimeError(f"meta-SAE diverged (NaN loss) step={step}")
                     opt.zero_grad(set_to_none=True)
                     loss.backward()
+                    # Project out the parallel component of W_dec.grad so the
+                    # post-step renormalize doesn't waste gradient on radial
+                    # motion that gets clipped anyway. Bricken et al. 2023
+                    # ("Towards Monosemanticity", Appendix A); Adam's momentum
+                    # estimates are otherwise biased by the radial component.
+                    if sae.W_dec.grad is not None:
+                        with torch.no_grad():
+                            W_unit = F.normalize(sae.W_dec.data, dim=1)
+                            radial = (sae.W_dec.grad * W_unit).sum(dim=1, keepdim=True) * W_unit
+                            sae.W_dec.grad.sub_(radial)
                     grad_norm = torch.nn.utils.clip_grad_norm_(sae.parameters(), max_norm=1.0)
                     if grad_norm.item() > 1000:
                         _write_diverged(ctx, f"grad_norm={grad_norm.item():.3g}")
                         raise RuntimeError(f"meta-SAE diverged (grad norm) step={step}")
                     opt.step()
-                    # Renormalize decoder rows so each feature stays on the unit
-                    # sphere. Standard SAE hygiene (Bussmann et al., Bricken et
-                    # al.); prevents W_dec from shrinking to dodge reconstruction
-                    # cost, which lets W_enc pick up the slack.
                     with torch.no_grad():
                         sae.W_dec.data = F.normalize(sae.W_dec.data, dim=1)
                     if step % log_every == 0:
