@@ -113,7 +113,16 @@ header = lines[0].split("\t")
 # is judged by the LATEST status row in results.tsv. This lets a row
 # transition complete -> stale -> complete across recipe revisions without
 # breaking the append-only contract.
+#
+# Auto-retry policy: a row whose latest status is "failed" becomes eligible
+# again after RETRY_COOLDOWN_SECONDS, up to MAX_ATTEMPTS total. This means
+# transient failures (OOM, NCCL blip, HF timeout) self-heal without ntfy,
+# and only genuinely-broken configs accumulate enough failed rows to give up.
+RETRY_COOLDOWN_SECONDS = 3600
+MAX_ATTEMPTS = 10
 latest = {}  # exp_id -> (timestamp, status)
+attempts = {}  # exp_id -> count of all "failed" rows in history
+last_failed_ts = {}  # exp_id -> latest "failed" timestamp
 for line in lines[1:]:
     if not line.strip():
         continue
@@ -121,16 +130,38 @@ for line in lines[1:]:
     rec = dict(zip(header, parts))
     eid = rec.get("experiment_id", "")
     ts = rec.get("timestamp", "")
+    st = rec.get("status", "")
     if not eid:
         continue
     prev = latest.get(eid)
     if prev is None or ts > prev[0]:
-        latest[eid] = (ts, rec.get("status", ""))
-complete = {eid for eid, (_, st) in latest.items() if st == "ok"}
-failed_count = {}
-for eid, (_, st) in latest.items():
+        latest[eid] = (ts, st)
     if st == "failed":
-        failed_count[eid] = failed_count.get(eid, 0) + 1
+        attempts[eid] = attempts.get(eid, 0) + 1
+        if eid not in last_failed_ts or ts > last_failed_ts[eid]:
+            last_failed_ts[eid] = ts
+complete = {eid for eid, (_, st) in latest.items() if st == "ok"}
+def _parse(ts):
+    try:
+        return datetime.datetime.fromisoformat(ts)
+    except Exception:
+        return None
+now = datetime.datetime.now().astimezone()
+failed_blocked = set()  # rows with latest=failed and not yet retry-eligible
+for eid, (ts, st) in latest.items():
+    if st != "failed":
+        continue
+    if attempts.get(eid, 0) >= MAX_ATTEMPTS:
+        failed_blocked.add(eid)
+        continue
+    last_ts = _parse(last_failed_ts.get(eid, ""))
+    if last_ts is not None:
+        try:
+            elapsed = (now - last_ts).total_seconds()
+        except TypeError:
+            elapsed = RETRY_COOLDOWN_SECONDS
+        if elapsed < RETRY_COOLDOWN_SECONDS:
+            failed_blocked.add(eid)
 
 state = {}
 if os.path.exists("experiments/state.json"):
@@ -162,7 +193,7 @@ eligible = []
 for e in rows:
     if e["id"] in complete or e["id"] in skipped or e["id"] in session_skip:
         continue
-    if failed_count.get(e["id"], 0) >= 1:
+    if e["id"] in failed_blocked:
         continue
     cond = e.get("conditional") or {}
     if cond.get("stretch_if_time_permits"):
@@ -342,7 +373,10 @@ run_one() {
     local elapsed=$((end_epoch - start_epoch))
 
     if [[ $success -ne 1 ]]; then
-        ntfy_send "high" "[SAE ERROR] $exp_id" "failed after 3 retries; see $log_file"
+        # No ntfy: the auto-retry policy in select_next_pending re-eligibilizes
+        # this row after RETRY_COOLDOWN_SECONDS. The TSV row + log file is
+        # the durable record. The heartbeat watchdog escalates if this row
+        # accumulates enough failures to look genuinely stuck.
         local now
         now=$(date -Iseconds)
         printf "%s\t%s\tfailed\t\t\t\t\t\t\t\t\t\t\t\t%d\t\t\tretry_exhausted\n" "$now" "$exp_id" "$elapsed" >> "$RESULTS_TSV"
@@ -360,9 +394,10 @@ run_one() {
         # and pwmcc in column 2 so these two reads work generically.
         ve=$(awk -F'\t' 'NR==2 {print $1}' "$metrics_file" 2>/dev/null || echo "NA")
         pwmcc=$(awk -F'\t' 'NR==2 {print $2}' "$metrics_file" 2>/dev/null || echo "NA")
-    else
-        ntfy_send "high" "[SAE WARN] $exp_id" "entrypoint exited 0 but no metrics.tsv (training-rule-5 violation); results.tsv row is still present from the harness"
     fi
+    # Missing metrics.tsv after a successful exit is a training-rule-5
+    # violation. We don't ntfy: the row sits as ok with empty metrics, the
+    # heartbeat catches the anomaly via "rows with status=ok but blank VE".
 
     local gate_rc=0
     if [[ -f "$metrics_file" ]]; then
@@ -376,31 +411,27 @@ run_one() {
     # Per-experiment done ntfy removed (too noisy); heartbeat reports
     # progress every 12h.
 
-    if [[ $gate_rc -eq 42 ]]; then
-        if [[ "${SAE_LOOP_SOFT_HALT:-0}" == "1" ]]; then
-            # Soft-halt mode: a halt_and_notify gate fired, but the operator
-            # opted to continue past it. Quiet — soft-halt fires often during
-            # recipe shakedown and would dominate the ntfy stream. The fired
-            # gate is recorded in experiments/gates.tsv and the row's
-            # results.tsv entry retains the metric. Heartbeat reports the
-            # most recent gate outcome too.
-            return 0
-        fi
-        ntfy_send "urgent" "[SAE HALT] $exp_id" "halt_and_notify gate triggered; runner stopping"
-        write_state_field "runner_status" "halted"
-        return 42
-    fi
-
+    # halt_and_notify gates never actually halt the runner. They fire,
+    # write the metric to gates.tsv and state.most_recent_gate_outcome, and
+    # the runner moves on. Halts as a control-flow primitive were the wrong
+    # design: a gate firing is research data ("this row deviated"), not an
+    # operational error ("stop everything"). The heartbeat watchdog is the
+    # only mechanism that escalates to a phone notification, and only when
+    # progress has actually stalled.
     return 0
 }
 
 main() {
     init_state
-    ntfy_send "default" "[SAE milestone] runner starting" "pid=$$ $(date -Iseconds)"
+    # Runner-start ntfy removed: the operator launched it themselves and
+    # doesn't need a self-confirming notification.
+
+    local idle_sleep=1800   # 30 min between scans when no eligible work
+    local matrix_complete_announced=0
 
     while true; do
         if [[ -f "$HALT_FILE" ]]; then
-            ntfy_send "high" "[SAE runner halted by HALT file]" ""
+            # User touched the HALT file deliberately. No ntfy: they know.
             write_state_field "runner_status" "halted"
             break
         fi
@@ -414,16 +445,20 @@ main() {
         local next
         next=$(select_next_pending)
         if [[ "$next" == "NONE" ]]; then
-            ntfy_send "default" "[SAE milestone] matrix complete" "all eligible experiments have status=complete or skipped_by_gate"
+            if [[ $matrix_complete_announced -eq 0 ]]; then
+                ntfy_send "default" "Autopilot caught up on all current work" "Every experiment that can run right now has run. The autopilot stays alive and will pick up anything that becomes runnable later (a retry that aged past its cooldown, or a new dependency completing)."
+                matrix_complete_announced=1
+            fi
             write_state_field "runner_status" "idle"
-            break
+            sleep "$idle_sleep"
+            continue
         fi
 
-        run_one "$next"
-        local rc=$?
-        if [[ $rc -eq 42 ]]; then
-            break
-        fi
+        # Reset the milestone flag whenever new work appears (a previously
+        # failed row aged past cooldown, or a dependency just completed).
+        matrix_complete_announced=0
+
+        run_one "$next" || true
 
         sleep 5
     done
