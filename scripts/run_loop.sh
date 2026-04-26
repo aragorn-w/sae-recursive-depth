@@ -118,7 +118,7 @@ header = lines[0].split("\t")
 # again after RETRY_COOLDOWN_SECONDS, up to MAX_ATTEMPTS total. This means
 # transient failures (OOM, NCCL blip, HF timeout) self-heal without ntfy,
 # and only genuinely-broken configs accumulate enough failed rows to give up.
-RETRY_COOLDOWN_SECONDS = 3600
+RETRY_COOLDOWN_SECONDS = 86400
 MAX_ATTEMPTS = 10
 latest = {}  # exp_id -> (timestamp, status)
 attempts = {}  # exp_id -> count of all "failed" rows in history
@@ -180,6 +180,22 @@ if skipfile and os.path.exists(skipfile):
 today = datetime.date.today()
 deadline = datetime.date(2026, 5, 5)
 days_until_deadline = (deadline - today).days
+
+# Hard freeze: after FREEZE_AT (America/Denver) no new rows are picked.
+# In-flight runs finish naturally; the loop's next select_next_pending
+# returns NONE and the runner exits its main loop.
+try:
+    from zoneinfo import ZoneInfo
+    _now_local = datetime.datetime.now(tz=ZoneInfo("America/Denver"))
+    FREEZE_AT = datetime.datetime(2026, 5, 4, 17, 0, tzinfo=ZoneInfo("America/Denver"))
+except Exception:
+    # Fallback if zoneinfo unavailable for any reason: use naive UTC and
+    # subtract 6h to approximate MDT. Better to over-freeze than miss it.
+    _now_local = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
+    FREEZE_AT = datetime.datetime(2026, 5, 4, 17, 0)
+if _now_local >= FREEZE_AT:
+    print("NONE")
+    sys.exit(0)
 
 rows = matrix["experiments"]
 

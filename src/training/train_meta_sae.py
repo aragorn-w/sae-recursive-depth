@@ -13,6 +13,7 @@ not the meta-SAE's architecture.
 from __future__ import annotations
 
 import math
+import os
 from pathlib import Path
 
 import torch
@@ -28,6 +29,21 @@ D_MODEL: dict[str, int] = {
     "google/gemma-2-2b": 2304,
     "openai-community/gpt2": 768,
 }
+
+# Bussmann arXiv:2412.06410 §3 auxk recipe. AUXK_DEAD_STEPS counts gradient
+# steps a latent must remain inactive before it is eligible for the auxiliary
+# reconstruction loss; AUXK_K is the cap on how many dead latents participate
+# per step (top by pre-activation); AUXK_ALPHA scales L_aux into the total
+# loss. Off by default; enabled by the sentinel file written from
+# scripts/evaluate_gates.py when a BatchTopK anchor undershoots Leask.
+AUXK_SENTINEL = Path("experiments/AUXK_ENABLED")
+AUXK_DEAD_STEPS = 1000
+AUXK_K = 512
+AUXK_ALPHA = 1.0 / 32.0
+
+
+def _auxk_enabled() -> bool:
+    return os.environ.get("SAE_AUXK_ENABLED") == "1" or AUXK_SENTINEL.exists()
 
 
 def _device() -> torch.device:
@@ -155,6 +171,11 @@ def main() -> None:
 
         opt = torch.optim.Adam(sae.parameters(), lr=3e-4, betas=(0.9, 0.999), weight_decay=0.0)
 
+        auxk_on = _auxk_enabled()
+        dead_counter = (
+            torch.zeros(width, dtype=torch.int32, device=device) if auxk_on else None
+        )
+
         # Step-budget-driven training: 30k gradient steps regardless of
         # dataset size, so tiny depth-3 inputs (parent_width=4096) still get
         # enough updates to converge. Adam lr=3e-4 per training rule 8.
@@ -164,8 +185,10 @@ def main() -> None:
 
         curves_path: Path = ctx.artifact_dir / "curves.tsv"
         with curves_path.open("w") as cf:
-            cf.write("step\tloss\n")
+            cf.write("step\tloss\tauxk_loss\tn_dead\n")
             step = 0
+            last_auxk_value = 0.0
+            last_n_dead = 0
             while step < total_steps:
                 # Reshuffle the training split each pass.
                 gen = torch.Generator(device="cpu")
@@ -176,8 +199,40 @@ def main() -> None:
                         break
                     bidx = train_idx[epoch_perm[b : b + batch_size]]
                     batch = x_train[bidx]
-                    recon, _ = sae(batch, use_training_topk=True)
+                    recon, latents = sae(batch, use_training_topk=True)
                     loss = F.mse_loss(recon, batch)
+
+                    if auxk_on:
+                        fired = (latents > 0).any(dim=0)
+                        dead_counter = torch.where(
+                            fired,
+                            torch.zeros_like(dead_counter),
+                            dead_counter + 1,
+                        )
+                        dead_mask = dead_counter > AUXK_DEAD_STEPS
+                        n_dead = int(dead_mask.sum().item())
+                        last_n_dead = n_dead
+                        if n_dead > 0:
+                            pre_all = F.relu(sae.preact(batch))
+                            dead_pre = pre_all[:, dead_mask]
+                            B = dead_pre.shape[0]
+                            k_aux = min(AUXK_K, n_dead)
+                            total_kept = B * k_aux
+                            flat = dead_pre.reshape(-1)
+                            if total_kept < flat.numel():
+                                topk = torch.topk(flat, total_kept, sorted=False)
+                                mask = torch.zeros_like(flat)
+                                mask.scatter_(0, topk.indices, 1.0)
+                                dead_pre = (flat * mask).reshape(B, n_dead)
+                            W_dec_dead = sae.W_dec[dead_mask]
+                            aux_recon = dead_pre @ W_dec_dead
+                            residual = (batch - recon).detach()
+                            aux_loss = F.mse_loss(aux_recon, residual)
+                            last_auxk_value = float(aux_loss.item())
+                            loss = loss + AUXK_ALPHA * aux_loss
+                        else:
+                            last_auxk_value = 0.0
+
                     if not torch.isfinite(loss):
                         _write_diverged(ctx, "NaN loss")
                         raise RuntimeError(f"meta-SAE diverged (NaN loss) step={step}")
@@ -201,15 +256,24 @@ def main() -> None:
                     with torch.no_grad():
                         sae.W_dec.data = F.normalize(sae.W_dec.data, dim=1)
                     if step % log_every == 0:
-                        cf.write(f"{step}\t{loss.item():.6g}\n")
+                        cf.write(
+                            f"{step}\t{loss.item():.6g}\t{last_auxk_value:.6g}\t{last_n_dead}\n"
+                        )
                         if ctx.wandb_run is not None:
                             try:
-                                ctx.wandb_run.log({"train/loss": loss.item(), "step": step})
+                                ctx.wandb_run.log({
+                                    "train/loss": loss.item(),
+                                    "train/auxk_loss": last_auxk_value,
+                                    "train/n_dead": last_n_dead,
+                                    "step": step,
+                                })
                             except Exception:
                                 pass
                     step += 1
             # Final loss line.
-            cf.write(f"{step}\t{loss.item():.6g}\n")
+            cf.write(
+                f"{step}\t{loss.item():.6g}\t{last_auxk_value:.6g}\t{last_n_dead}\n"
+            )
 
         # Fit inference threshold on the full training split so the eval path
         # with `use_training_topk=False` behaves consistently with training.
@@ -258,9 +322,11 @@ def main() -> None:
 
         ctx.metrics["variance_explained"] = ve
         ctx.metrics["dead_latent_fraction"] = dead_frac
+        auxk_tag = " auxk=on" if auxk_on else ""
         ctx.notes = (
             f"meta-SAE arch=batchtopk (parent={parent_arch}) width={width} "
             f"k={sparsity} parent={parent_source} parent_width={parent_width}"
+            f"{auxk_tag}"
         )
 
 

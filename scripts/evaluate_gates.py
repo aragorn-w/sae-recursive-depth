@@ -4,11 +4,23 @@ import argparse
 import datetime
 import json
 import os
+import subprocess
 import sys
+from pathlib import Path
 
 import yaml
 
 LEASK_VE = 0.5547
+
+# Auxk auto-trigger: when a BatchTopK anchor finishes with VE under this
+# threshold, write the AUXK_ENABLED sentinel and re-queue the meta-SAE
+# rows downstream of the anchor. The threshold is well below Leask's 0.5547
+# so spurious near-target results don't trip it.
+AUXK_TRIGGER_VE = 0.50
+AUXK_SENTINEL = Path("experiments/AUXK_ENABLED")
+AUXK_TRIGGER_LOG = Path("experiments/AUXK_TRIGGER.log")
+RESULTS_TSV = Path("experiments/results.tsv")
+NTFY_SCRIPT = Path("scripts/ntfy_send.sh")
 
 def load_metrics(metrics_file):
     metrics = {}
@@ -60,6 +72,75 @@ def gate_triggered(metric, value, threshold):
     if metric in ("variance_explained_deviation_from_leask", "dead_latent_fraction"):
         return value > threshold
     return False
+
+def maybe_trigger_auxk(exp, metrics, matrix):
+    """Auto-apply auxk if a BatchTopK anchor undershoots AUXK_TRIGGER_VE.
+
+    Idempotent: bails out if AUXK_SENTINEL already exists. Touches the
+    sentinel, appends `stale_auxk_fix` rows to results.tsv for every
+    BatchTopK anchor + every meta-SAE row at depths 1-3 on either base
+    model, and ntfys high-priority.
+    """
+    eid = exp["id"]
+    if "batchtopk_anchor_d1" not in eid:
+        return
+    if AUXK_SENTINEL.exists():
+        return
+    ve = metrics.get("variance_explained", metrics.get("VE"))
+    if ve is None or not isinstance(ve, (int, float)):
+        return
+    if ve >= AUXK_TRIGGER_VE:
+        return
+
+    AUXK_SENTINEL.parent.mkdir(parents=True, exist_ok=True)
+    AUXK_SENTINEL.write_text(
+        f"triggered by {eid} VE={ve:.4f} at {datetime.datetime.now().astimezone().isoformat()}\n"
+    )
+
+    # Re-queue every BatchTopK anchor + every depth-1/2/3 meta-SAE row, on
+    # both base models and both arches. The runner picks them up under the
+    # standard latest-row-wins rule (see scripts/run_loop.sh:104).
+    requeue_ids = []
+    for r in matrix["experiments"]:
+        rid = r["id"]
+        d = r.get("depth")
+        if "batchtopk_anchor_d1" in rid:
+            requeue_ids.append(rid)
+            continue
+        if d in (1, 2, 3) and r.get("level0_source") in ("train_from_scratch", "google/gemma-scope-2b-pt-res-canonical"):
+            # Catches gemma_jumprelu_d{1,2,3}_*, gemma_batchtopk_d{1,2,3}_*,
+            # gpt2_batchtopk_d{1,2,3}_*, and the ratio-ablation rows.
+            requeue_ids.append(rid)
+
+    now = datetime.datetime.now().astimezone().isoformat()
+    with RESULTS_TSV.open("a") as f:
+        for rid in requeue_ids:
+            # 18-column TSV per SPEC §8.2; only timestamp/id/status are
+            # populated for stale markers.
+            f.write(f"{now}\t{rid}\tstale_auxk_fix\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n")
+
+    log_line = f"{now}\t{eid}\tVE={ve:.4f}\trequeued={len(requeue_ids)}\n"
+    with AUXK_TRIGGER_LOG.open("a") as f:
+        f.write(log_line)
+
+    title = f"[SAE auxk-trigger] {eid} VE={ve:.3f}<{AUXK_TRIGGER_VE}"
+    msg = (
+        f"BatchTopK anchor {eid} returned VE={ve:.4f}, below auxk trigger "
+        f"threshold {AUXK_TRIGGER_VE}. Wrote {AUXK_SENTINEL}. Re-queued "
+        f"{len(requeue_ids)} rows with stale_auxk_fix; runner will pick "
+        f"them up with auxk loss enabled (Bussmann §3, alpha=1/32, k_aux=512). "
+        f"To abort: rm {AUXK_SENTINEL}"
+    )
+    if NTFY_SCRIPT.exists():
+        try:
+            subprocess.run(
+                ["bash", str(NTFY_SCRIPT), "high", title, msg, "warning"],
+                timeout=15,
+                check=False,
+            )
+        except Exception as e:
+            print(f"[evaluate_gates] ntfy failed (non-fatal): {e!r}", file=sys.stderr)
+
 
 def descendants_to_skip(matrix, exp, action):
     rows = matrix["experiments"]
@@ -125,6 +206,11 @@ def main():
                     skipped.add(sid)
             elif action == "skip_experiment":
                 pass
+
+    # Auxk auto-trigger: must run AFTER gate eval so the trigger ntfy and
+    # the gate ntfy don't collide, and BEFORE state.json is written so any
+    # state changes from the trigger (currently none, but reserved) compose.
+    maybe_trigger_auxk(exp, metrics, matrix)
 
     state["skipped_by_gate"] = sorted(skipped)
     if most_recent is not None:
