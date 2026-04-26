@@ -12,3 +12,5 @@ timestamp	experiment_id	metric	observed_value	threshold	action	triggered
 2026-04-25T10:15:05.863822+00:00	gemma_jumprelu_anchor_d1_s2	variance_explained_deviation_from_leask	0.367324	0.05	halt_and_notify	1
 2026-04-25T11:05:24.660836+00:00	gemma_jumprelu_d1_s0	variance_explained	0.184815	0.2	skip_depth	1
 2026-04-25T17:07:43.864203+00:00	gemma_jumprelu_d1_s2	variance_explained	0.18196	0.2	skip_depth	1
+2026-04-25T22:57:26.521003+00:00	gemma_jumprelu_d2_s0	variance_explained	-0.00210345	0.2	skip_depth	1
+2026-04-25T23:11:23.318097+00:00	gemma_jumprelu_d2_s2	variance_explained	0.00311428	0.2	skip_depth	1
