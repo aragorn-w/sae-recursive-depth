@@ -86,7 +86,14 @@ def load_base_model(model_id: str, *, device: str | torch.device = "cuda"):
     from huggingface_hub import snapshot_download
 
     snapshot_download(repo_id=model_id, revision=rev)
-    model = HookedTransformer.from_pretrained(model_id, device=str(device))
+    # transformer_lens's get_pretrained_model_config rejects the canonical HF
+    # id "openai-community/gpt2" in current versions — only the short alias
+    # "gpt2" is in its OFFICIAL_MODEL_NAMES list. snapshot_download above used
+    # the canonical id (correct for HF cache + revision pinning); the from_
+    # pretrained call below uses the short alias when one exists.
+    TL_NAME_ALIASES = {"openai-community/gpt2": "gpt2"}
+    tl_name = TL_NAME_ALIASES.get(model_id, model_id)
+    model = HookedTransformer.from_pretrained(tl_name, device=str(device))
     model.eval()
     for p in model.parameters():
         p.requires_grad_(False)
