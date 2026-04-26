@@ -1,0 +1,29 @@
+# Runner notebook
+
+Auto-appended by scripts/run_loop.sh. One row per completed experiment.
+
+- 2026-04-23T10:15:32+00:00  **gemma_jumprelu_anchor_d1_s1**  VE=0.1845  PW-MCC=NA  elapsed=762s
+- 2026-04-23T10:22:41+00:00  **gemma_jumprelu_anchor_d1_s2**  VE=0.180654  PW-MCC=NA  elapsed=423s
+- 2026-04-23T11:12:44+00:00  **gemma_jumprelu_d1_s0**  VE=0.166439  PW-MCC=NA  elapsed=1953s
+- 2026-04-23T14:52:47+00:00  **gemma_jumprelu_d1_s2**  VE=0.163816  PW-MCC=NA  elapsed=1954s
+- 2026-04-23T15:12:02+00:00  **null_gemma_d1_s0**  VE=-1.74951  PW-MCC=NA  elapsed=63s
+- 2026-04-23T15:13:11+00:00  **null_gemma_d1_s1**  VE=-1.68222  PW-MCC=NA  elapsed=63s
+- 2026-04-23T15:14:20+00:00  **null_gemma_d1_s2**  VE=-1.74968  PW-MCC=NA  elapsed=63s
+- 2026-04-23T15:14:44+00:00  **null_gpt2_d1_s0**  VE=-4.24591  PW-MCC=NA  elapsed=18s
+- 2026-04-23T15:15:08+00:00  **null_gpt2_d1_s1**  VE=-4.03641  PW-MCC=NA  elapsed=18s
+- 2026-04-23T15:15:32+00:00  **null_gpt2_d1_s2**  VE=-3.93499  PW-MCC=NA  elapsed=18s
+- 2026-04-23T15:23:38+00:00  **gemma_jumprelu_d2_s0**  VE=-0.0149947  PW-MCC=NA  elapsed=480s
+- 2026-04-23T15:31:44+00:00  **gemma_jumprelu_d2_s2**  VE=-0.0112853  PW-MCC=NA  elapsed=481s
+- 2026-04-23T15:32:20+00:00  **null_gemma_d2_s0**  VE=0.0166765  PW-MCC=NA  elapsed=9s
+- 2026-04-23T15:32:34+00:00  **null_gemma_d2_s1**  VE=0.01734  PW-MCC=NA  elapsed=8s
+- 2026-04-23T15:32:49+00:00  **null_gemma_d2_s2**  VE=0.0163162  PW-MCC=NA  elapsed=9s
+- 2026-04-23T15:33:01+00:00  **null_gpt2_d2_s0**  VE=0.021886  PW-MCC=NA  elapsed=6s
+- 2026-04-23T15:33:13+00:00  **null_gpt2_d2_s1**  VE=0.0237795  PW-MCC=NA  elapsed=6s
+- 2026-04-23T15:33:25+00:00  **null_gpt2_d2_s2**  VE=0.0241753  PW-MCC=NA  elapsed=6s
+- 2026-04-23T15:34:25+00:00  **gemma_jumprelu_d3_s0**  VE=-0.0248986  PW-MCC=NA  elapsed=55s
+- 2026-04-23T15:35:25+00:00  **gemma_jumprelu_d3_s2**  VE=-0.022892  PW-MCC=NA  elapsed=54s
+- 2026-04-23T15:35:58+00:00  **null_gemma_d3_s0**  VE=0.000293136  PW-MCC=NA  elapsed=5s
+- 2026-04-23T15:36:08+00:00  **null_gemma_d3_s1**  VE=0.000234962  PW-MCC=NA  elapsed=4s
+- 2026-04-23T15:36:19+00:00  **null_gemma_d3_s2**  VE=0.000275731  PW-MCC=NA  elapsed=5s
+- 2026-04-23T15:36:30+00:00  **null_gpt2_d3_s1**  VE=0.0288895  PW-MCC=NA  elapsed=5s
+- 2026-04-23T15:36:40+00:00  **null_gpt2_d3_s2**  VE=0.0288728  PW-MCC=NA  elapsed=5s
