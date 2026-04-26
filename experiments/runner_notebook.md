@@ -29,3 +29,12 @@ Auto-appended by scripts/run_loop.sh. One row per completed experiment.
 - 2026-04-23T15:36:40+00:00  **null_gpt2_d3_s2**  VE=0.0288728  PW-MCC=NA  elapsed=5s
 - 2026-04-25T09:19:42+00:00  **gemma_jumprelu_anchor_d1_s0**  VE=0.191562  PW-MCC=NA  elapsed=641s
 - 2026-04-25T09:51:03+00:00  **gemma_jumprelu_anchor_d1_s1**  VE=0.190676  PW-MCC=NA  elapsed=1179s
+- 2026-04-25T10:15:09+00:00  **gemma_jumprelu_anchor_d1_s2**  VE=0.187376  PW-MCC=NA  elapsed=644s
+- 2026-04-25T11:05:26+00:00  **gemma_jumprelu_d1_s0**  VE=0.184815  PW-MCC=NA  elapsed=3009s
+- 2026-04-25T17:08:17+00:00  **gemma_jumprelu_d1_s2**  VE=0.18196  PW-MCC=NA  elapsed=3008s
+- 2026-04-25T22:33:07+00:00  **null_gemma_d1_s0**  VE=-1.60339  PW-MCC=NA  elapsed=67s
+- 2026-04-25T22:35:17+00:00  **null_gemma_d1_s1**  VE=-1.51444  PW-MCC=NA  elapsed=66s
+- 2026-04-25T22:39:15+00:00  **null_gemma_d1_s2**  VE=-1.6091  PW-MCC=NA  elapsed=67s
+- 2026-04-25T22:40:35+00:00  **null_gpt2_d1_s0**  VE=-4.14536  PW-MCC=NA  elapsed=18s
+- 2026-04-25T22:42:23+00:00  **null_gpt2_d1_s1**  VE=-3.93478  PW-MCC=NA  elapsed=18s
+- 2026-04-25T22:45:05+00:00  **null_gpt2_d1_s2**  VE=-3.83131  PW-MCC=NA  elapsed=18s
