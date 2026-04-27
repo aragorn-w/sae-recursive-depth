@@ -2,15 +2,15 @@
   "runner_status": "running",
   "pid": 1622585,
   "started_at": "2026-04-27T11:09:45+00:00",
-  "last_heartbeat": "2026-04-27T15:43:13.392273+00:00",
+  "last_heartbeat": "2026-04-27T16:13:23.131832+00:00",
   "current_experiment_id": "gemma_jumprelu_anchor_d1_s2",
   "most_recent_gate_outcome": {
-    "experiment_id": "gemma_jumprelu_anchor_d1_s0",
+    "experiment_id": "gemma_jumprelu_anchor_d1_s2",
     "metric": "variance_explained_deviation_from_leask",
-    "value": 0.35833,
+    "value": 0.361913,
     "threshold": 0.05,
     "action": "halt_and_notify",
-    "timestamp": "2026-04-27T15:41:37.427953+00:00"
+    "timestamp": "2026-04-27T16:13:23.131832+00:00"
   },
   "blockers": [],
   "skipped_by_gate": []

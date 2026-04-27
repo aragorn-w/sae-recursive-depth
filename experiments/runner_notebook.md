@@ -64,3 +64,4 @@ Auto-appended by scripts/run_loop.sh. One row per completed experiment.
 - 2026-04-27T15:21:42+00:00  **gemma_jumprelu_d1_s1**  VE=0.184728  PW-MCC=NA  elapsed=2287s
 - 2026-04-27T15:43:07+00:00  **gemma_jumprelu_anchor_d1_s0**  VE=0.19637  PW-MCC=NA  elapsed=1880s
 - 2026-04-27T15:55:40+00:00  **gemma_jumprelu_anchor_d1_s1**  VE=0.195998  PW-MCC=NA  elapsed=1942s
+- 2026-04-27T16:14:55+00:00  **gemma_jumprelu_anchor_d1_s2**  VE=0.192787  PW-MCC=NA  elapsed=1810s
