@@ -18,3 +18,5 @@ timestamp	experiment_id	cell_key	pwmcc	pwmcc_encoder_only	pwmcc_decoder_only	unm
 2026-04-25T23:12:52.592744+00:00	gemma_jumprelu_d2_s2	google/gemma-2-2b|jumprelu|2|4096|gemma_jumprelu_d2	0	0	0	1			2	1	real-data cell
 2026-04-27T10:23:41.347548+00:00	gemma_jumprelu_d3_s0	google/gemma-2-2b|jumprelu|3|1024|gemma_jumprelu_d3	0	0	0	1			2	1	real-data cell
 2026-04-27T10:23:41.347548+00:00	gemma_jumprelu_d3_s2	google/gemma-2-2b|jumprelu|3|1024|gemma_jumprelu_d3	0	0	0	1			2	1	real-data cell
+2026-04-27T11:13:19.322242+00:00	null_gemma_d2_s0	google/gemma-2-2b|none|2|4096|null_gemma_d2	0	0	0	1			2	1	null cell
+2026-04-27T11:13:19.322242+00:00	null_gemma_d2_s1	google/gemma-2-2b|none|2|4096|null_gemma_d2	0	0	0	1			2	1	null cell
