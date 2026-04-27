@@ -227,6 +227,33 @@ def main():
         json.dump(state, f, indent=2)
     os.replace(tmp, args.state_file)
 
+    # ntfy on any non-halt gate fire as well. halt_and_notify gates already
+    # trigger their own escalation through the runner; skip_depth and
+    # skip_experiment used to fire silently, leaving the operator no signal
+    # that a lineage was just pruned. Default priority so phones don't
+    # vibrate, but the message lands in the feed.
+    if most_recent is not None and most_recent.get("action") != "halt_and_notify" and NTFY_SCRIPT.exists():
+        try:
+            mt = most_recent.get("metric", "?")
+            mv = most_recent.get("value")
+            th = most_recent.get("threshold")
+            act = most_recent.get("action", "?")
+            mv_s = f"{mv:.4g}" if isinstance(mv, (int, float)) else str(mv)
+            th_s = f"{th:.4g}" if isinstance(th, (int, float)) else str(th)
+            title = f"[SAE gate fire] {exp['id']} {act} on {mt}"
+            msg = (
+                f"Decision gate triggered for {exp['id']}: "
+                f"{mt}={mv_s} vs threshold {th_s} → action={act}. "
+                f"See experiments/gates.tsv for full history."
+            )
+            subprocess.run(
+                ["bash", str(NTFY_SCRIPT), "default", title, msg],
+                timeout=15,
+                check=False,
+            )
+        except Exception as e:
+            print(f"[evaluate_gates] gate-fire ntfy failed (non-fatal): {e!r}", file=sys.stderr)
+
     if halt:
         sys.exit(42)
     sys.exit(0)

@@ -32,13 +32,15 @@ export SAE_RETRY_COOLDOWN_SECONDS="${SAE_RETRY_COOLDOWN_SECONDS:-900}"   # 15 mi
 export SAE_MAX_ATTEMPTS="${SAE_MAX_ATTEMPTS:-10}"
 
 # Lane definition table:
-#   lane_label   SAE_LANE   GPU_REMAP env=value     description
+#   lane_label   SAE_LANE   GPU_REMAP env=value     description    [extra_env]
+# Extra env (5th, optional): pipe-delimited string of extra env assignments
+# to inject into the lane's shell, e.g. "SAE_LANE_FALLBACK=0 SAE_GPU_REMAP_0=4".
 LANES=(
     "lane-0|0|SAE_GPU_REMAP_0=2|meta-SAE primary (yaml '0' → CUDA 2 / 4080)"
     "lane-1|1|SAE_GPU_REMAP_1=0|meta-SAE parallel seed (yaml '1' → CUDA 0 / 4080)"
     "lane-2a|2|SAE_GPU_REMAP_2=1|24 GB jobs slot A (yaml '2' → CUDA 1 / 3090)"
     "lane-2b|2|SAE_GPU_REMAP_2=3|24 GB jobs slot B (yaml '2' → CUDA 3 / 3090)"
-    "lane-4|4|SAE_GPU_REMAP_4=4|analysis & flat-SAE control (yaml '4' → CUDA 4 / 4060 Ti)"
+    "lane-4|4|SAE_GPU_REMAP_4=4|4060 Ti: primary null & flat-SAE control; spills over to gpu_preference=0,1 rows ≤0.5 hr when null queue is empty|SAE_LANE_FALLBACK=0,1 SAE_LANE_FALLBACK_MAX_HOURS=0.5 SAE_GPU_REMAP_0=4 SAE_GPU_REMAP_1=4"
 )
 
 ANALYSIS_LANE="analysis"  # special: not run_loop, runs scripts/run_analysis.sh
@@ -75,6 +77,7 @@ spawn_lane() {
     local lane_value="$2"
     local remap_env="$3"
     local desc="$4"
+    local extra_env="${5:-}"
 
     if window_alive "$label"; then
         orch_log "lane $label already alive, skipping spawn"
@@ -84,9 +87,12 @@ spawn_lane() {
     tmux new-window -t "$SESSION" -n "$label" -d
     # Compose the launch command. Env vars live in the lane's shell so each
     # worker has independent SAE_LANE and SAE_GPU_REMAP_X without collision.
+    # extra_env carries optional per-lane assignments (e.g. SAE_LANE_FALLBACK)
+    # spliced in unquoted because they are operator-controlled, simple
+    # KEY=value tokens.
     local cmd
-    cmd=$(printf 'export SAE_LANE=%q SAE_LANE_LABEL=%q %s SAE_IGNORE_DEADLINE=%q SAE_RETRY_COOLDOWN_SECONDS=%q SAE_MAX_ATTEMPTS=%q; cd %q; while true; do bash scripts/run_loop.sh 2>&1 | tee -a experiments/logs/lane-%s.log; echo "[lane=%s] run_loop exited rc=$? at $(date -Iseconds); restarting in 30s" | tee -a experiments/logs/lane-%s.log; sleep 30; done' \
-        "$lane_value" "$label" "$remap_env" "$SAE_IGNORE_DEADLINE" "$SAE_RETRY_COOLDOWN_SECONDS" "$SAE_MAX_ATTEMPTS" "$REPO_ROOT" "$label" "$label" "$label")
+    cmd=$(printf 'export SAE_LANE=%q SAE_LANE_LABEL=%q %s %s SAE_IGNORE_DEADLINE=%q SAE_RETRY_COOLDOWN_SECONDS=%q SAE_MAX_ATTEMPTS=%q; cd %q; while true; do bash scripts/run_loop.sh 2>&1 | tee -a experiments/logs/lane-%s.log; echo "[lane=%s] run_loop exited rc=$? at $(date -Iseconds); restarting in 30s" | tee -a experiments/logs/lane-%s.log; sleep 30; done' \
+        "$lane_value" "$label" "$remap_env" "$extra_env" "$SAE_IGNORE_DEADLINE" "$SAE_RETRY_COOLDOWN_SECONDS" "$SAE_MAX_ATTEMPTS" "$REPO_ROOT" "$label" "$label" "$label")
     tmux send-keys -t "${SESSION}:${label}" "$cmd" C-m
     orch_log "spawned $label ($desc)"
 }
@@ -156,18 +162,18 @@ supervise() {
     ensure_session
     orch_log "autopilot supervisor up (pid=$$, session=$SESSION)"
     for entry in "${LANES[@]}"; do
-        IFS='|' read -r label lane_value remap_env desc <<<"$entry"
-        spawn_lane "$label" "$lane_value" "$remap_env" "$desc"
+        IFS='|' read -r label lane_value remap_env desc extra_env <<<"$entry"
+        spawn_lane "$label" "$lane_value" "$remap_env" "$desc" "$extra_env"
         sleep 1
     done
     spawn_analysis
 
     while true; do
         for entry in "${LANES[@]}"; do
-            IFS='|' read -r label lane_value remap_env desc <<<"$entry"
+            IFS='|' read -r label lane_value remap_env desc extra_env <<<"$entry"
             if ! window_alive "$label"; then
                 orch_log "WARN lane $label window dead — respawning"
-                spawn_lane "$label" "$lane_value" "$remap_env" "$desc"
+                spawn_lane "$label" "$lane_value" "$remap_env" "$desc" "$extra_env"
             fi
         done
         if ! window_alive "$ANALYSIS_LANE"; then

@@ -125,8 +125,16 @@ def main() -> None:
                     except Exception:
                         pass
 
-        # Fit inference threshold so eval can run without batch-topk.
-        sae.fit_inference_threshold(x_train[:batch_size])
+        # Fit inference threshold on enough samples that each latent fires
+        # multiple times under BatchTopK. With k=sparsity and width=W,
+        # fitting on N samples gives ~k*N/W firings per latent. Using only
+        # `batch_size` samples (4096) at d1 width=16384 yields ~1 firing per
+        # latent — the resulting jump_threshold is essentially noise and
+        # makes the use_training_topk=False eval path collapse to negative
+        # VE on isotropic Gaussian held-out data. Use the entire training
+        # split capped at 32K samples (memory-safe even for d_model=2304).
+        threshold_fit_n = min(n_samples, 32768)
+        sae.fit_inference_threshold(x_train[:threshold_fit_n])
 
         # Held-out evaluation on fresh Gaussians drawn from a distinct seed.
         eval_seed = NULL_SEED_OFFSET + ctx.seed + 500
