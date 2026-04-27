@@ -344,3 +344,4 @@ timestamp	experiment_id	status	base_model	level0_arch	depth	seed	width	variance_
 2026-04-27T20:10:08.891516+00:00	l0_gpt2_batchtopk	failed	openai-community/gpt2	batchtopk	0	0	49152							0.00213535	8d1ec57	https://wandb.ai/bluemon/sae-recursive-depth/runs/t6dt1dxw	diverged: grad_norm=5.99e+03
 2026-04-27T20:10:10+00:00	l0_gpt2_batchtopk	failed												362			retry_exhausted
 2026-04-27T21:07:50.354543+00:00	flat_gpt2_w12288_s1	ok	openai-community/gpt2	batchtopk	1	1	12288	0.924402					0.072998	0.959216	8d1ec57	https://wandb.ai/bluemon/sae-recursive-depth/runs/8kajnvnz	flat SAE on openai-community/gpt2 layer 8 residual, width=12288 k=60 tokens=100000000
+2026-04-27T22:07:02.129908+00:00	flat_gpt2_w12288_s2	ok	openai-community/gpt2	batchtopk	1	2	12288	0.926622					0.0625	0.955036	db37c2d	https://wandb.ai/bluemon/sae-recursive-depth/runs/yw3qlqhw	flat SAE on openai-community/gpt2 layer 8 residual, width=12288 k=60 tokens=100000000
