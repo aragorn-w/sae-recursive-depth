@@ -2,8 +2,8 @@
   "runner_status": "running",
   "pid": 1588953,
   "started_at": "2026-04-27T11:09:49+00:00",
-  "last_heartbeat": "2026-04-27T11:17:03.034007+00:00",
-  "current_experiment_id": "null_gpt2_d2_s1",
+  "last_heartbeat": "2026-04-27T11:18:45.100850+00:00",
+  "current_experiment_id": "null_gpt2_d2_s2",
   "most_recent_gate_outcome": {},
   "blockers": [],
   "skipped_by_gate": []
