@@ -276,3 +276,11 @@ timestamp	experiment_id	status	base_model	level0_arch	depth	seed	width	variance_
 2026-04-26T02:13:39.743538+00:00	flat_gpt2_w12288_s1	stale_post_gpu_fix															marked stale: post gpu_policy fix (commit 1da30fd) + 24h retry-cooldown bump
 2026-04-26T02:13:39.743538+00:00	flat_gpt2_w12288_s2	stale_post_gpu_fix															marked stale: post gpu_policy fix (commit 1da30fd) + 24h retry-cooldown bump
 2026-04-26T02:13:39.743538+00:00	gemma_jumprelu_d1_s1	stale_post_gpu_fix															marked stale: post gpu_policy fix (commit 1da30fd) + 24h retry-cooldown bump
+2026-04-27T10:14:03.400798+00:00	l0_gemma_batchtopk	failed	google/gemma-2-2b	batchtopk	0	0	65536							0.000787267	ae8dc12	https://wandb.ai/bluemon/sae-recursive-depth/runs/4ypk1v2o	BrokenPipeError: [Errno 32] Broken pipe
+2026-04-27T10:14:37.344939+00:00	l0_gemma_batchtopk	failed	google/gemma-2-2b	batchtopk	0	0	65536							0.000170629	ae8dc12		BrokenPipeError: [Errno 32] Broken pipe
+2026-04-27T10:17:58.502001+00:00	l0_gemma_batchtopk	failed	google/gemma-2-2b	batchtopk	0	0	65536							0.000167182	ae8dc12		BrokenPipeError: [Errno 32] Broken pipe
+2026-04-27T10:17:59+00:00	l0_gemma_batchtopk	failed												241			retry_exhausted
+2026-04-27T10:18:06.938638+00:00	l0_gpt2_batchtopk	failed	openai-community/gpt2	batchtopk	0	0	49152							0.00017781	ae8dc12		BrokenPipeError: [Errno 32] Broken pipe
+2026-04-27T10:18:40.039856+00:00	l0_gpt2_batchtopk	failed	openai-community/gpt2	batchtopk	0	0	49152							0.000178981	ae8dc12		BrokenPipeError: [Errno 32] Broken pipe
+2026-04-27T10:19:30.776999+00:00	gemma_jumprelu_d3_s0	ok	google/gemma-2-2b	jumprelu	3	0	1024	-0.0308669					0.356445	0.0151849	ae8dc12	https://wandb.ai/bluemon/sae-recursive-depth/runs/oz2qxhok	meta-SAE arch=batchtopk (parent=jumprelu) width=1024 k=4 parent=local:gemma_jumprelu_d2_s0 parent_width=4096
+2026-04-27T10:19:50.878799+00:00	l0_gpt2_batchtopk	failed	openai-community/gpt2	batchtopk	0	0	49152							0.00020507	ae8dc12		BrokenPipeError: [Errno 32] Broken pipe
