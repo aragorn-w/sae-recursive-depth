@@ -119,20 +119,38 @@ class BatchTopKSAE(_SAEBase):
         x: torch.Tensor,
         *,
         quantile_floor: float = 0.0,
+        chunk_size: int = 4096,
     ) -> None:
         """Set ``jump_threshold[i]`` to the min nonzero training activation for latent i.
 
-        Run once at the end of training over a held-out or last-epoch batch.
+        Processes x in chunks of ``chunk_size`` rows to bound peak GPU memory.
+        Per-latent min is associative so the chunked result matches the
+        unchunked result modulo the BatchTopK cut being applied per-chunk
+        rather than globally — fine for threshold fitting and matches the
+        per-batch regime the trained model was optimized under.
+
+        Memory: O(chunk_size * n_latents) per chunk vs. O(N * n_latents)
+        for the unchunked path. At width=16384, N=14745, the unchunked path
+        materializes ~3 GiB of (latents, masked, mask) tensors on top of
+        model + optimizer state, which OOMs on 16 GiB cards. Chunking caps
+        that to ~800 MiB regardless of N.
         """
-        pre = F.relu(self.preact(x))
-        latents = _batch_top_k(pre, self.cfg.sparsity)
-        # For each latent, take the minimum nonzero activation observed under
-        # the batch-topk mask. If a latent is dead on this batch, leave its
-        # threshold at zero so it cannot activate on eval.
-        nonzero_mask = latents > 0
-        # Replace zeros with +inf before min, then clamp back to 0 for dead latents.
-        masked = torch.where(nonzero_mask, latents, torch.full_like(latents, float("inf")))
-        per_latent_min, _ = masked.min(dim=0)
+        n = x.shape[0]
+        device = x.device
+        ref_dtype = self.W_enc.dtype
+        per_latent_min = torch.full(
+            (self.cfg.n_latents,), float("inf"), device=device, dtype=ref_dtype
+        )
+        for start in range(0, n, chunk_size):
+            chunk = x[start : start + chunk_size]
+            pre = F.relu(self.preact(chunk))
+            latents = _batch_top_k(pre, self.cfg.sparsity)
+            nonzero_mask = latents > 0
+            masked = torch.where(
+                nonzero_mask, latents, torch.full_like(latents, float("inf"))
+            )
+            chunk_min, _ = masked.min(dim=0)
+            per_latent_min = torch.minimum(per_latent_min, chunk_min)
         per_latent_min = torch.where(
             torch.isfinite(per_latent_min),
             per_latent_min,

@@ -1,8 +1,8 @@
 {
   "runner_status": "idle",
-  "pid": 1587562,
+  "pid": 1622585,
   "started_at": "2026-04-27T11:09:45+00:00",
-  "last_heartbeat": "2026-04-27T12:39:46.292528+00:00",
+  "last_heartbeat": "2026-04-27T14:40:17.162167+00:00",
   "current_experiment_id": null,
   "most_recent_gate_outcome": {},
   "blockers": []

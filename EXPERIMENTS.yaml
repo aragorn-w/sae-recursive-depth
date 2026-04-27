@@ -545,6 +545,8 @@ experiments:
   dict_ratio: 0.047619047619
   sparsity: 4
   gpu_preference: "0"
+  train_steps: 90000
+  enable_auxk: true
   dependencies: []
   decision_gates:
   - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
@@ -567,6 +569,8 @@ experiments:
   dict_ratio: 0.047619047619
   sparsity: 4
   gpu_preference: "1"
+  train_steps: 90000
+  enable_auxk: true
   dependencies: []
   decision_gates:
   - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
@@ -589,6 +593,8 @@ experiments:
   dict_ratio: 0.047619047619
   sparsity: 4
   gpu_preference: "0"
+  train_steps: 90000
+  enable_auxk: true
   dependencies: []
   decision_gates:
   - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
@@ -611,6 +617,8 @@ experiments:
   dict_ratio: 0.047619047619
   sparsity: 4
   gpu_preference: "0"
+  train_steps: 90000
+  enable_auxk: true
   dependencies: ["l0_gemma_batchtopk"]
   decision_gates:
   - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
@@ -633,6 +641,8 @@ experiments:
   dict_ratio: 0.047619047619
   sparsity: 4
   gpu_preference: "1"
+  train_steps: 90000
+  enable_auxk: true
   dependencies: ["l0_gemma_batchtopk"]
   decision_gates:
   - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
@@ -655,6 +665,8 @@ experiments:
   dict_ratio: 0.047619047619
   sparsity: 4
   gpu_preference: "0"
+  train_steps: 90000
+  enable_auxk: true
   dependencies: ["l0_gemma_batchtopk"]
   decision_gates:
   - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
@@ -677,6 +689,8 @@ experiments:
   dict_ratio: 0.047619047619
   sparsity: 4
   gpu_preference: "0"
+  train_steps: 90000
+  enable_auxk: true
   dependencies: ["l0_gpt2_batchtopk"]
   decision_gates:
   - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
@@ -699,6 +713,8 @@ experiments:
   dict_ratio: 0.047619047619
   sparsity: 4
   gpu_preference: "1"
+  train_steps: 90000
+  enable_auxk: true
   dependencies: ["l0_gpt2_batchtopk"]
   decision_gates:
   - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}
@@ -721,6 +737,8 @@ experiments:
   dict_ratio: 0.047619047619
   sparsity: 4
   gpu_preference: "0"
+  train_steps: 90000
+  enable_auxk: true
   dependencies: ["l0_gpt2_batchtopk"]
   decision_gates:
   - {metric: "variance_explained_deviation_from_leask", threshold: 0.05, action: "halt_and_notify"}

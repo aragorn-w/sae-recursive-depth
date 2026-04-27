@@ -169,17 +169,21 @@ def main() -> None:
         with torch.no_grad():
             sae.b_dec.data = x_train[train_idx].mean(dim=0).to(sae.b_dec.dtype)
 
+        # Per-row training budget. Anchors and other rows that need more
+        # gradient updates than the 30k default can override via row config.
+        # train_steps: total gradient steps; enable_auxk: turn on Bussmann
+        # auxk loss from step 0 (otherwise gated by AUXK_ENABLED sentinel
+        # written by evaluate_gates.py only when an anchor undershoots).
+        total_steps = int(row.get("train_steps") or 30000)
+        force_auxk = bool(row.get("enable_auxk") or False)
+
         opt = torch.optim.Adam(sae.parameters(), lr=3e-4, betas=(0.9, 0.999), weight_decay=0.0)
 
-        auxk_on = _auxk_enabled()
+        auxk_on = _auxk_enabled() or force_auxk
         dead_counter = (
             torch.zeros(width, dtype=torch.int32, device=device) if auxk_on else None
         )
 
-        # Step-budget-driven training: 30k gradient steps regardless of
-        # dataset size, so tiny depth-3 inputs (parent_width=4096) still get
-        # enough updates to converge. Adam lr=3e-4 per training rule 8.
-        total_steps = 30000
         batch_size = min(4096, max(256, n_train // 4))
         log_every = max(1, total_steps // 100)
 
