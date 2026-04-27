@@ -39,26 +39,31 @@ def load_metrics(metrics_file):
             metrics[h] = v
     return metrics
 
+def _num(v):
+    if isinstance(v, (int, float)):
+        return v
+    return None
+
 def compute_gate_value(metric, metrics):
     if metric == "variance_explained":
-        return metrics.get("variance_explained", metrics.get("VE"))
+        return _num(metrics.get("variance_explained", metrics.get("VE")))
     if metric == "pwmcc_vs_null_sigma":
-        obs = metrics.get("pwmcc")
-        mu = metrics.get("pwmcc_null_mean")
-        sd = metrics.get("pwmcc_null_std")
+        obs = _num(metrics.get("pwmcc"))
+        mu = _num(metrics.get("pwmcc_null_mean"))
+        sd = _num(metrics.get("pwmcc_null_std"))
         if obs is None or mu is None or sd is None or sd == 0:
             return None
         return (obs - mu) / sd
     if metric == "variance_explained_deviation_from_leask":
-        ve = metrics.get("variance_explained", metrics.get("VE"))
+        ve = _num(metrics.get("variance_explained", metrics.get("VE")))
         if ve is None:
             return None
         return abs(ve - LEASK_VE)
     if metric == "dead_latent_fraction":
-        return metrics.get("dead_latent_fraction")
+        return _num(metrics.get("dead_latent_fraction"))
     if metric == "median_detection_score_vs_null_pct95":
-        med = metrics.get("median_detection_score")
-        null_p95 = metrics.get("null_detection_score_p95")
+        med = _num(metrics.get("median_detection_score"))
+        null_p95 = _num(metrics.get("null_detection_score_p95"))
         if med is None or null_p95 is None or null_p95 == 0:
             return None
         return med / null_p95

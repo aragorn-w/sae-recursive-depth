@@ -12,12 +12,16 @@
 # env var (SAE_GPU_REMAP_<yaml>=<actual>) before launching the runner to
 # override without editing.
 #
-# Current host layout (2026-04-26, post-diagnosis):
-#   GPU 0  contended — cv-semseg evaluator-watch + P4 bench target this.
-#   GPU 1  3090 24 GB — big-model slot.
-#   GPU 2  16 GB 4080 — small-model slot.
-#   GPU 3  3090 24 GB — big-model slot.
-#   GPU 4  16 GB 4060 Ti — small-model slot.
+# Current host layout (2026-04-27, post cv-semseg indefinite freeze):
+#   cv-semseg is frozen by operator until SAE paper-writing is complete, so
+#   all five cards are available to SAE. The hades_gpu_coord claim protocol
+#   is suspended for the duration of the freeze.
+#
+#   GPU 0  RTX 4080 16 GB    — SAE small-model slot
+#   GPU 1  RTX 3090 24 GB    — SAE big-model slot A
+#   GPU 2  RTX 4080 16 GB    — SAE small-model slot
+#   GPU 3  RTX 3090 24 GB    — SAE big-model slot B (was cv-semseg)
+#   GPU 4  RTX 4060 Ti 16 GB — SAE analysis / extra small-model slot
 #
 # CRITICAL: indices in this file are nvidia-smi PCI_BUS_ID order. Without
 # the export below, CUDA defaults to FASTEST_FIRST and swaps GPUs 1<->2
@@ -32,15 +36,21 @@ export CUDA_DEVICE_ORDER=PCI_BUS_ID
 #   "2" Gemma level-0 activation cache (needed 24 GB)
 #   "3" Llama-3.1-8B autointerp (needed 24 GB)
 #   "4" analysis/plots (needed 16 GB)
+#
+# Routing strategy (2026-04-27, full-host SAE access):
+#   - 16 GB SAE intents fan out across the three 4080-class cards (0, 2, 4)
+#     for parallel meta-SAE seeds.
+#   - 24 GB SAE intents fan out across the two 3090s (1, 3); paired 24 GB
+#     intents run on both in parallel instead of serializing on a single card.
 
 declare -A SAE_GPU_REMAP=(
-    ["0"]="2"       # meta-SAE (16 GB intent)          -> 16 GB non-contended
-    ["1"]="4"       # meta-SAE parallel (16 GB intent) -> 16 GB non-contended
-    ["2"]="1"       # Gemma activation cache (24 GB)   -> 24 GB 3090
-    ["3"]="3"       # autointerp Llama-3.1-8B (24 GB)  -> 24 GB 3090
-    ["4"]="4"       # analysis/plots (16 GB)           -> 16 GB (unchanged)
-    ["0,1"]="2,4"
-    ["2,3"]="1,3"
+    ["0"]="2"       # meta-SAE primary (16 GB)         -> CUDA 2 (4080)
+    ["1"]="0"       # meta-SAE parallel seed (16 GB)   -> CUDA 0 (4080)
+    ["2"]="1"       # Gemma activation cache (24 GB)   -> CUDA 1 (3090)
+    ["3"]="3"       # autointerp Llama-3.1-8B (24 GB)  -> CUDA 3 (3090)
+    ["4"]="4"       # analysis/plots (16 GB)           -> CUDA 4 (4060 Ti)
+    ["0,1"]="0,2"   # paired 16 GB meta-SAE seeds      -> both 4080s
+    ["2,3"]="1,3"   # paired 24 GB intents             -> both 3090s
 )
 
 resolve_gpu() {

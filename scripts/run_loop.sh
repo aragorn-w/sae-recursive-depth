@@ -16,15 +16,26 @@ cd "$REPO_ROOT"
 # shellcheck source=scripts/gpu_policy.sh
 source "$REPO_ROOT/scripts/gpu_policy.sh"
 
-STATE_FILE="experiments/state.json"
+# Lane-aware execution. SAE_LANE filters select_next_pending to only consider
+# rows whose gpu_preference matches. Empty lane (legacy invocation) means
+# match-everything, keeping single-runner behavior. Multiple workers running
+# in parallel each pin SAE_LANE; row-level claim files prevent collision.
+SAE_LANE="${SAE_LANE:-}"
+SAE_LANE_LABEL="${SAE_LANE_LABEL:-${SAE_LANE:-default}}"
+export SAE_LANE SAE_LANE_LABEL
+
+STATE_FILE="experiments/state.lane.${SAE_LANE_LABEL}.json"
+LEGACY_STATE_FILE="experiments/state.json"
 RESULTS_TSV="experiments/results.tsv"
 GATES_TSV="experiments/gates.tsv"
 LOG_DIR="experiments/logs"
 PAUSE_FILE="experiments/PAUSE"
 HALT_FILE="experiments/HALT"
 NTFY_TOPIC="sae-wanga-research"
+CLAIM_DIR="experiments/.row_claims"
+GIT_LOCK="experiments/.git_commit.lock"
 
-mkdir -p "$LOG_DIR" experiments/artifacts
+mkdir -p "$LOG_DIR" experiments/artifacts "$CLAIM_DIR"
 
 # In-session skip set. run_one appends an exp_id here on EXIT_SCAFFOLD_STUB
 # (99); select_next_pending honors it. Cleared on every fresh invocation so
@@ -103,7 +114,36 @@ ntfy_send() {
 
 select_next_pending() {
     uv run python - <<'PY'
-import yaml, json, sys, os, datetime
+import yaml, json, sys, os, datetime, errno
+SAE_LANE = os.environ.get("SAE_LANE", "")
+CLAIM_DIR = "experiments/.row_claims"
+
+def _claim_active(exp_id):
+    """Return True if another worker holds an in-flight claim on this row."""
+    p = os.path.join(CLAIM_DIR, f"{exp_id}.claim")
+    if not os.path.exists(p):
+        return False
+    try:
+        with open(p) as f:
+            d = {}
+            for line in f:
+                line = line.strip()
+                if "=" in line:
+                    k, v = line.split("=", 1)
+                    d[k.strip()] = v.strip()
+        pid = int(d.get("pid", "0"))
+        if pid <= 0:
+            return False
+        try:
+            os.kill(pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+    except Exception:
+        return False
+
 with open("EXPERIMENTS.yaml") as f:
     matrix = yaml.safe_load(f)
 with open("experiments/results.tsv") as f:
@@ -118,8 +158,8 @@ header = lines[0].split("\t")
 # again after RETRY_COOLDOWN_SECONDS, up to MAX_ATTEMPTS total. This means
 # transient failures (OOM, NCCL blip, HF timeout) self-heal without ntfy,
 # and only genuinely-broken configs accumulate enough failed rows to give up.
-RETRY_COOLDOWN_SECONDS = 86400
-MAX_ATTEMPTS = 10
+RETRY_COOLDOWN_SECONDS = int(os.environ.get("SAE_RETRY_COOLDOWN_SECONDS", "86400"))
+MAX_ATTEMPTS = int(os.environ.get("SAE_MAX_ATTEMPTS", "10"))
 latest = {}  # exp_id -> (timestamp, status)
 attempts = {}  # exp_id -> count of all "failed" rows in history
 last_failed_ts = {}  # exp_id -> latest "failed" timestamp
@@ -193,7 +233,7 @@ except Exception:
     # subtract 6h to approximate MDT. Better to over-freeze than miss it.
     _now_local = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
     FREEZE_AT = datetime.datetime(2026, 5, 4, 17, 0)
-if _now_local >= FREEZE_AT:
+if _now_local >= FREEZE_AT and os.environ.get("SAE_IGNORE_DEADLINE", "0") != "1":
     print("NONE")
     sys.exit(0)
 
@@ -211,13 +251,21 @@ for e in rows:
         continue
     if e["id"] in failed_blocked:
         continue
+    if SAE_LANE and str(e.get("gpu_preference", "")) != SAE_LANE:
+        continue
+    if _claim_active(e["id"]):
+        continue
     cond = e.get("conditional") or {}
     if cond.get("stretch_if_time_permits"):
         nonstretch_ids = {x["id"] for x in rows if not (x.get("conditional") or {}).get("stretch_if_time_permits")}
         if not nonstretch_ids.issubset(complete | skipped):
             continue
-        if days_until_deadline < 4:
-            continue
+        # Stretch experiments are gated on calendar deadline by default.
+        # When the user has explicitly disabled deadline-gating (autopilot
+        # sprint mode, 2026-04-27), they run as soon as preconditions hold.
+        if os.environ.get("SAE_IGNORE_DEADLINE", "0") != "1":
+            if days_until_deadline < 4:
+                continue
     if not dep_ok(e):
         continue
     eligible.append(e)
@@ -318,32 +366,81 @@ commit_artifacts() {
     local exp_id="$1"
     local ve="${2:-NA}"
     local pwmcc="${3:-NA}"
-    # Only commit runner-owned paths. Immutability guard will block anything
-    # protected; we add only what the runner is allowed to touch.
-    git add \
-        "experiments/artifacts/$exp_id/" \
-        "experiments/artifacts/_summary/" \
-        experiments/results.tsv \
-        experiments/gates.tsv \
-        experiments/pwmcc_posthoc.tsv \
-        experiments/state.json \
-        experiments/runner_notebook.md \
-        experiments/logs/ 2>/dev/null || true
-    # Use --allow-empty=false (default) and tolerate "nothing to commit".
-    if ! git diff --cached --quiet 2>/dev/null; then
-        git commit -m "[SAE-LOOP] $exp_id complete VE=$ve PW-MCC=$pwmcc" --no-gpg-sign 2>&1 | tail -20 || true
-    fi
+    # Serialize git operations across parallel lane workers via flock.
+    # Without this, two workers racing on `git add`/`git commit` can corrupt
+    # the index. fd 9 holds the advisory lock for the duration of the block.
+    (
+        flock -x 9
+        git add \
+            "experiments/artifacts/$exp_id/" \
+            "experiments/artifacts/_summary/" \
+            experiments/results.tsv \
+            experiments/gates.tsv \
+            experiments/pwmcc_posthoc.tsv \
+            experiments/state.json \
+            experiments/state.lane.*.json \
+            experiments/runner_notebook.md \
+            experiments/logs/ 2>/dev/null || true
+        if ! git diff --cached --quiet 2>/dev/null; then
+            git commit -m "[SAE-LOOP] $exp_id complete VE=$ve PW-MCC=$pwmcc" --no-gpg-sign 2>&1 | tail -20 || true
+        fi
+    ) 9>"$GIT_LOCK"
+}
+
+claim_row() {
+    local exp_id="$1"
+    local claim_path="$CLAIM_DIR/$exp_id.claim"
+    local tmp_path="$claim_path.$$.tmp"
+    {
+        printf "pid=%d\nlane=%s\nstarted_at=%s\n" "$$" "$SAE_LANE_LABEL" "$(date -Iseconds)"
+    } > "$tmp_path"
+    # O_EXCL via Python: rename only if claim doesn't already exist OR is stale.
+    uv run python - "$claim_path" "$tmp_path" <<'PY'
+import os, sys
+target, src = sys.argv[1], sys.argv[2]
+if os.path.exists(target):
+    try:
+        with open(target) as f:
+            d = {k.strip(): v.strip() for k, v in (line.split("=", 1) for line in f if "=" in line)}
+        pid = int(d.get("pid", "0"))
+        if pid > 0:
+            try:
+                os.kill(pid, 0)
+                # live claim — refuse
+                os.unlink(src)
+                sys.exit(1)
+            except ProcessLookupError:
+                pass  # stale, fall through
+    except Exception:
+        pass
+os.replace(src, target)
+sys.exit(0)
+PY
+    return $?
+}
+
+release_row() {
+    local exp_id="$1"
+    rm -f "$CLAIM_DIR/$exp_id.claim"
 }
 
 run_one() {
     local exp_id="$1"
+    if ! claim_row "$exp_id"; then
+        # Another lane worker grabbed this row between select_next_pending
+        # and claim_row. Yield this iteration so the caller picks the next
+        # eligible row on the next scan.
+        echo "[lane=$SAE_LANE_LABEL] claim_lost $exp_id" >&2
+        return 0
+    fi
+    trap "release_row '$exp_id'" RETURN
     local gpu_pref
     gpu_pref=$(get_experiment_field "$exp_id" "gpu_preference")
     local gpu_actual
     gpu_actual=$(resolve_gpu "$gpu_pref")
     local entrypoint
     entrypoint=$(dispatch_entrypoint "$exp_id")
-    local log_file="$LOG_DIR/${exp_id}_$(date +%Y%m%d_%H%M%S).log"
+    local log_file="$LOG_DIR/${exp_id}__lane-${SAE_LANE_LABEL}_$(date +%Y%m%d_%H%M%S).log"
 
     write_state_field "current_experiment_id" "$exp_id"
     # Per-experiment start/done notifications were too noisy. Heartbeat cron

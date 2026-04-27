@@ -1,6 +1,15 @@
 experiments/logs/
 experiments/artifacts/
 experiments/state.json
+experiments/state.lane.*.json
+experiments/.row_claims/
+experiments/.git_commit.lock
+experiments/.runner_lock
+experiments/PAUSE
+experiments/HALT
+experiments/PRE_PAPER_COMPLETE
+experiments/AUXK_ENABLED
+experiments/AUXK_TRIGGER.log
 *.pyc
 __pycache__/
 .venv/

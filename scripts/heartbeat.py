@@ -196,7 +196,11 @@ def summarize() -> tuple[str, str, str]:
     gpu_hours = gpu_seconds / 3600.0
 
     runner_status = state.get("runner_status") or "unknown"
-    runner_alive = _pid_alive(state.get("pid"))
+    # Liveness check: with the parallel orchestrator, treat the runner as
+    # alive if any per-lane pid is live, or if the legacy state.pid is live.
+    lanes_state = state.get("lanes") or {}
+    lane_pids = [v.get("pid") for v in lanes_state.values() if isinstance(v, dict)]
+    runner_alive = _pid_alive(state.get("pid")) or any(_pid_alive(p) for p in lane_pids)
     runner_crashed = runner_status == "running" and not runner_alive
 
     now = datetime.datetime.now().astimezone()
@@ -208,8 +212,19 @@ def summarize() -> tuple[str, str, str]:
         and hours_since > STALL_HOURS
     )
 
-    # Pretty fragments.
-    current = humanize_id(state.get("current_experiment_id") or "")
+    # Pretty fragments. With the parallel orchestrator, current_experiment_id
+    # is a dict {lane_label: exp_id}. Fall back to the legacy string form.
+    _cur = state.get("current_experiment_id") or ""
+    if isinstance(_cur, dict):
+        active = [v for v in _cur.values() if v]
+        if not active:
+            current = ""
+        elif len(active) == 1:
+            current = humanize_id(active[0])
+        else:
+            current = " + ".join(humanize_id(a) for a in active)
+    else:
+        current = humanize_id(_cur)
     last_done_line = ""
     if latest_ok is not None:
         r = latest_ok[1]
