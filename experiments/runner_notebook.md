@@ -60,3 +60,4 @@ Auto-appended by scripts/run_loop.sh. One row per completed experiment.
 - 2026-04-27T12:38:12+00:00  **null_gemma_d1_s2**  VE=0.00424808  PW-MCC=NA  elapsed=66s
 - 2026-04-27T12:39:38+00:00  **null_gpt2_d1_s0**  VE=0.0162001  PW-MCC=NA  elapsed=18s
 - 2026-04-27T12:41:33+00:00  **null_gpt2_d1_s1**  VE=0.0140804  PW-MCC=NA  elapsed=19s
+- 2026-04-27T12:44:23+00:00  **null_gpt2_d1_s2**  VE=0.0172724  PW-MCC=NA  elapsed=19s
