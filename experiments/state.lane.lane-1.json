@@ -2,8 +2,19 @@
   "runner_status": "running",
   "pid": 1622613,
   "started_at": "2026-04-27T11:09:46+00:00",
-  "last_heartbeat": "2026-04-27T14:40:22.503409+00:00",
+  "last_heartbeat": "2026-04-27T15:18:29.892475+00:00",
   "current_experiment_id": "gemma_jumprelu_d1_s1",
-  "most_recent_gate_outcome": {},
-  "blockers": []
+  "most_recent_gate_outcome": {
+    "experiment_id": "gemma_jumprelu_d1_s1",
+    "metric": "variance_explained",
+    "value": 0.184728,
+    "threshold": 0.2,
+    "action": "skip_depth",
+    "timestamp": "2026-04-27T15:18:29.892475+00:00"
+  },
+  "blockers": [],
+  "skipped_by_gate": [
+    "gemma_jumprelu_d2_s1",
+    "gemma_jumprelu_d3_s1"
+  ]
 }

@@ -1,9 +1,9 @@
 {
-  "runner_status": "idle",
+  "runner_status": "running",
   "pid": 1622585,
   "started_at": "2026-04-27T11:09:45+00:00",
-  "last_heartbeat": "2026-04-27T14:40:17.162167+00:00",
-  "current_experiment_id": null,
+  "last_heartbeat": "2026-04-27T15:10:17.774710+00:00",
+  "current_experiment_id": "gemma_jumprelu_anchor_d1_s0",
   "most_recent_gate_outcome": {},
   "blockers": []
 }
