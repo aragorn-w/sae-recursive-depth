@@ -75,3 +75,9 @@ timestamp	experiment_id	cell_key	pwmcc	pwmcc_encoder_only	pwmcc_decoder_only	unm
 2026-04-28T10:10:17.053574+00:00	gemma_jumprelu_d2_s0	google/gemma-2-2b|jumprelu|2|4096|gemma_jumprelu_d2	0	0	0	1	0	0	3	2	real-data cell
 2026-04-28T10:10:17.053574+00:00	gemma_jumprelu_d2_s2	google/gemma-2-2b|jumprelu|2|4096|gemma_jumprelu_d2	0	0	0	1	0	0	3	2	real-data cell
 2026-04-28T10:10:17.053574+00:00	gemma_jumprelu_d2_s1	google/gemma-2-2b|jumprelu|2|4096|gemma_jumprelu_d2	0	0	0	1	0	0	3	2	real-data cell
+2026-04-28T10:11:39.714702+00:00	gemma_jumprelu_d2_s0	google/gemma-2-2b|jumprelu|2|4096|gemma_jumprelu_d2	0	0	0	1	0	0	3	2	real-data cell
+2026-04-28T10:11:39.714702+00:00	gemma_jumprelu_d2_s2	google/gemma-2-2b|jumprelu|2|4096|gemma_jumprelu_d2	0	0	0	1	0	0	3	2	real-data cell
+2026-04-28T10:11:39.714702+00:00	gemma_jumprelu_d2_s1	google/gemma-2-2b|jumprelu|2|4096|gemma_jumprelu_d2	0	0	0	1	0	0	3	2	real-data cell
+2026-04-28T10:13:00.334691+00:00	gemma_jumprelu_d3_s0	google/gemma-2-2b|jumprelu|3|1024|gemma_jumprelu_d3	0	0	0	1	0	0	3	2	real-data cell
+2026-04-28T10:13:00.334691+00:00	gemma_jumprelu_d3_s2	google/gemma-2-2b|jumprelu|3|1024|gemma_jumprelu_d3	0	0	0	1	0	0	3	2	real-data cell
+2026-04-28T10:13:00.334691+00:00	gemma_jumprelu_d3_s1	google/gemma-2-2b|jumprelu|3|1024|gemma_jumprelu_d3	0	0	0	1	0	0	3	2	real-data cell

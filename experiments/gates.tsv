@@ -36,3 +36,5 @@ timestamp	experiment_id	metric	observed_value	threshold	action	triggered
 2026-04-28T09:54:52.057295+00:00	gpt2_batchtopk_d1_s1	pwmcc_vs_null_sigma	None	2.0	skip_depth	0
 2026-04-28T10:08:44.697335+00:00	gemma_jumprelu_d2_s1	variance_explained	-0.00580347	0.2	skip_experiment	1
 2026-04-28T10:08:44.697335+00:00	gemma_jumprelu_d2_s1	pwmcc_vs_null_sigma	None	2.0	skip_experiment	0
+2026-04-28T10:11:27.889544+00:00	gemma_jumprelu_d3_s1	variance_explained	-0.0256387	0.2	skip_experiment	1
+2026-04-28T10:11:27.889544+00:00	gemma_jumprelu_d3_s1	pwmcc_vs_null_sigma	None	2.0	skip_experiment	0
