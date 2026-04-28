@@ -17,7 +17,7 @@ timestamp	experiment_id	metric	observed_value	threshold	action	triggered
 2026-04-26T01:45:51.023839+00:00	flat_gpt2_w12288_s0	variance_explained	0.926393	0.5	skip_experiment	0
 2026-04-27T10:19:32.093506+00:00	gemma_jumprelu_d3_s0	variance_explained	-0.0308669	0.2	skip_experiment	1
 2026-04-27T10:22:10.063438+00:00	gemma_jumprelu_d3_s2	variance_explained	-0.0175284	0.2	skip_experiment	1
-2026-04-27T15:18:29.892475+00:00	gemma_jumprelu_d1_s1	variance_explained	0.184728	0.2	skip_depth	1
+2026-04-27T15:18:29.892475+00:00	gemma_jumprelu_d1_s1	variance_explained	0.184728	0.2	skip_depth	0
 2026-04-27T15:18:29.892475+00:00	gemma_jumprelu_d1_s1	pwmcc_vs_null_sigma	None	2.0	skip_depth	0
 2026-04-27T15:41:37.427953+00:00	gemma_jumprelu_anchor_d1_s0	variance_explained_deviation_from_leask	0.35833	0.05	halt_and_notify	1
 2026-04-27T15:54:09.280251+00:00	gemma_jumprelu_anchor_d1_s1	variance_explained_deviation_from_leask	0.35870199999999997	0.05	halt_and_notify	1

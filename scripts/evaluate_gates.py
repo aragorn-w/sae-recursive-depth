@@ -10,12 +10,18 @@ from pathlib import Path
 
 import yaml
 
-LEASK_VE = 0.5547
+# Bussmann/Leask reproduction reference. 0.5547 is the headline VE from
+# Leask et al. arXiv:2502.04878, but it applies *only* to their specific
+# config: GPT-2 Small + ReLU parent SAE (49,152 wide) + meta-SAE at
+# dict_ratio 1/21. Our anchor rows use JumpReLU (Gemma) and BatchTopK
+# (GPT-2) parents at dict_ratio 1/4, so this number is not a generalizable
+# target. Kept here only as the auxk-trigger anchor below.
+BUSSMANN_REPRO_REFERENCE_VE = 0.5547
 
 # Auxk auto-trigger: when a BatchTopK anchor finishes with VE under this
 # threshold, write the AUXK_ENABLED sentinel and re-queue the meta-SAE
-# rows downstream of the anchor. The threshold is well below Leask's 0.5547
-# so spurious near-target results don't trip it.
+# rows downstream of the anchor. Conservative floor; well below the
+# Bussmann/Leask reference so spurious near-target results don't trip it.
 AUXK_TRIGGER_VE = 0.50
 AUXK_SENTINEL = Path("experiments/AUXK_ENABLED")
 AUXK_TRIGGER_LOG = Path("experiments/AUXK_TRIGGER.log")
@@ -55,10 +61,15 @@ def compute_gate_value(metric, metrics):
             return None
         return (obs - mu) / sd
     if metric == "variance_explained_deviation_from_leask":
+        # Deprecated metric. Kept for back-compat in case any old row in
+        # EXPERIMENTS.yaml still references it; new rows should use
+        # `variance_explained` with an absolute floor instead. The reference
+        # constant is config-specific (see BUSSMANN_REPRO_REFERENCE_VE
+        # docstring above) and not a general target.
         ve = _num(metrics.get("variance_explained", metrics.get("VE")))
         if ve is None:
             return None
-        return abs(ve - LEASK_VE)
+        return abs(ve - BUSSMANN_REPRO_REFERENCE_VE)
     if metric == "dead_latent_fraction":
         return _num(metrics.get("dead_latent_fraction"))
     if metric == "median_detection_score_vs_null_pct95":

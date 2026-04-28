@@ -24,7 +24,7 @@ Scope: any Python module under `src/training/` that trains or fine-tunes an SAE,
 
 8. Adam defaults for meta-SAE training: `lr=3e-4`, `betas=(0.9, 0.999)`, `weight_decay=0`. Level-0 BatchTopK on Gemma-2-2B uses the same Adam settings with 500M Pile tokens and batch 2048, matching the Matryoshka paper recipe (arXiv:2503.17547).
 
-9. Training data for recursive depths is the decoder direction matrix of the previous depth, cast to fp32 for the inner product and fp16 for storage. Normalization is per Leask et al. (arXiv:2502.04878): each decoder column is unit-normalized before being fed to the next meta-SAE.
+9. Training data for recursive depths is the decoder direction matrix of the previous depth, cast to fp32 for the inner product and fp16 for storage. Each decoder direction (row of W_dec under the project's `(n_latents, d_model)` convention) is unit-normalized before being fed to the next meta-SAE; this matches standard SAE practice (Bricken et al. 2023) but is not explicitly endorsed in Leask et al. arXiv:2502.04878 or Bussmann et al. arXiv:2412.06410, despite the recursive-meta-SAE methodology being adapted from those works.
 
 10. If training diverges (NaN loss, explosive gradient norm >1000), do not retry with a different hyperparameter. Record the divergence in metrics.tsv with `status=diverged`, exit with a non-zero code, let the run_loop.sh backoff apply. Three divergences with the same config is a `failed` experiment, not an infrastructural problem.
 

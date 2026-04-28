@@ -12,6 +12,26 @@ What would change our minds: <concrete evidence that would reverse this>
 
 ---
 
+### 2026-04-28: Anchor VE floor 0.20 -> 0.10 (sanity check, no cascade)
+Decision: All 9 anchor rows in `EXPERIMENTS.yaml` use `decision_gates: variance_explained < 0.10 -> skip_depth`. At 0.10 the floor catches catastrophic divergence (negative VE, NaN-recovery rows) only and does not cascade-prune the recursive d2/d3 lineage of any anchor seed. Per-row floors on the recursive d1/d2/d3 rows kept at 0.20.
+Rationale: Post-widen anchor recipes land at VE ~0.20 (Gemma JumpReLU at w=16384) and ~0.12 (GPT-2 BatchTopK at w=12288). The prior 0.20 floor fired skip_depth on GPT-2's whole BatchTopK lineage despite the recipe being recipe-typical, not broken. The Leask 55.47% reference is config-specific (GPT-2 + ReLU + 1/21) and not a meaningful target at the 1/4 widen. Section 3 is now an architecture-controlled 1/4 comparison, not a Leask replication.
+What would change our minds: If the recursive d1 floors at 0.20 fire skip_depth on a recipe-typical run, lower those too. If a future recipe brings anchor VE back above 0.20, reinstate the higher floor.
+
+### 2026-04-28: Submission deadline 2026-05-05 -> 2026-05-09 23:59 MDT
+Decision: Submission day is 2026-05-09 23:59 MDT. Writeup-freeze at T-24h: 2026-05-08 23:59 MDT. After the freeze, no more training; corpus is locked, writeup-only.
+Rationale: External course deadline extension. Net adds ~10 days of compute-availability vs. the prior deadline. Removes compute as the binding constraint and shifts focus to writeup quality, autointerp, and figure work.
+What would change our minds: A second deadline extension from the course staff. Nothing internal.
+
+### 2026-04-28: d2 gates skip_depth -> skip_experiment (no cascade to d3)
+Decision: All 9 recursive d2 rows in `EXPERIMENTS.yaml` use `action: skip_experiment` on both `variance_explained` (threshold 0.20) and `pwmcc_vs_null_sigma` (threshold 2.0) gates. Under skip_experiment, a d2 gate fire records the failure but does not propagate to d3. d1 rows keep `skip_depth` (a d1 recipe collapse legitimately invalidates downstream).
+Rationale: Near-zero VE at d2 is the recursive-decomposition phenomenon the experiment is measuring, not a recipe failure. The prior `skip_depth` action treated expected behavior as cascade-failure and would have prevented seed-1 recovery (Decision 3): d2_s1's likely near-zero VE would cascade-skip d3_s1, leaving n=2 at d3. d3's gate is already skip_experiment; aligning d2 to the same semantic restores symmetry.
+What would change our minds: Evidence that the recursive cascade is producing not-just-near-zero-VE but pathological NaN/numerical-divergence outputs would justify reinstating skip_depth — but at that point a separate recipe fix is the right escalation, not a gate change.
+
+### 2026-04-28: Synthetic-ok promotions are bookkeeping, not data
+Decision: When an over-broad `stale_*` re-stage cycles already-`ok` rows back into the queue, append a fresh-timestamp `ok` row to `experiments/results.tsv` carrying the prior real-run's VE/dlf values verbatim, with `gpu_hours=0` and notes citing the source row. The original `ok` row is preserved (TSV is append-only); the synthetic row exists solely to make `select_next_pending` see the row as complete under the latest-row-wins rule.
+Rationale: The 2026-04-28T07:46:31Z auxk trigger mass-staled 42 rows including 7 already-`ok` Gemma JumpReLU recursive rows. Without a way to defeat the stale marker, those 7 rows would have been retrained from scratch, burning ~6 GPU-h of compute on rows whose published metrics are already correct. Promotion is a bookkeeping fix; the metrics in the synthetic row trace back to the same wandb run as the original.
+What would change our minds: A redesign of `evaluate_gates.py` that scopes auxk re-staging more narrowly (e.g., only BatchTopK anchors + their direct recursive children, not all jumprelu rows). Until then, manual promotion remains the operator escape hatch.
+
 ### 2026-04-14: Gemma-2-2B as primary base model, GPT-2 Small as replication arm
 Decision: Gemma-2-2B is the primary track for all depth-1/2/3 experiments on two level-0 architectures (JumpReLU and BatchTopK). GPT-2 Small is retained as a parallel replication track.
 Rationale: The 2025 SAE literature has shifted decisively to Gemma-2-2B. SAEBench (Karvonen et al., ICML 2025, arXiv:2503.09532) canonizes it as the reference base model. Gemma Scope (arXiv:2408.05147) ships SAEs up to 2^20 width. GPT-2 Small is the Leask et al. testbed and provides direct continuity with the only published meta-SAE result, which matters for validating the pipeline. Running both gives a model-generality signal (H4) at modest extra cost because GPT-2 SAE training is cheap (d_model=768).

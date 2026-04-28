@@ -44,6 +44,7 @@ LANES=(
 )
 
 ANALYSIS_LANE="analysis"  # special: not run_loop, runs scripts/run_analysis.sh
+WATCHDOG_LANE="watchdog"  # special: scripts/lane_watchdog.sh, kills zombie workers
 
 orch_log() {
     local stamp
@@ -109,6 +110,18 @@ spawn_analysis() {
     orch_log "spawned analysis lane (post-matrix pipeline)"
 }
 
+spawn_watchdog() {
+    local label="$WATCHDOG_LANE"
+    if window_alive "$label"; then
+        return 0
+    fi
+    tmux new-window -t "$SESSION" -n "$label" -d
+    local cmd
+    cmd=$(printf 'cd %q; while true; do bash scripts/lane_watchdog.sh 2>&1 | tee -a experiments/logs/watchdog-tmux.log; echo "[watchdog] exited rc=$? at $(date -Iseconds); restarting in 30s" | tee -a experiments/logs/watchdog-tmux.log; sleep 30; done' "$REPO_ROOT")
+    tmux send-keys -t "${SESSION}:${label}" "$cmd" C-m
+    orch_log "spawned watchdog lane (zombie detector)"
+}
+
 stop_all() {
     if ! tmux has-session -t "$SESSION" 2>/dev/null; then
         echo "session $SESSION does not exist"; return 0
@@ -127,6 +140,12 @@ stop_all() {
         sleep 1
         tmux kill-window -t "${SESSION}:${ANALYSIS_LANE}" 2>/dev/null || true
         orch_log "stopped $ANALYSIS_LANE"
+    fi
+    if window_alive "$WATCHDOG_LANE"; then
+        tmux send-keys -t "${SESSION}:${WATCHDOG_LANE}" C-c C-c 2>/dev/null || true
+        sleep 1
+        tmux kill-window -t "${SESSION}:${WATCHDOG_LANE}" 2>/dev/null || true
+        orch_log "stopped $WATCHDOG_LANE"
     fi
     # Kill any orphaned training processes that may still hold GPU memory.
     pkill -TERM -f "train_meta_sae|train_level0_batchtopk|train_flat_sae|train_null_sae|run_autointerp" 2>/dev/null || true
@@ -167,6 +186,7 @@ supervise() {
         sleep 1
     done
     spawn_analysis
+    spawn_watchdog
 
     while true; do
         for entry in "${LANES[@]}"; do
@@ -179,6 +199,10 @@ supervise() {
         if ! window_alive "$ANALYSIS_LANE"; then
             orch_log "WARN analysis lane dead — respawning"
             spawn_analysis
+        fi
+        if ! window_alive "$WATCHDOG_LANE"; then
+            orch_log "WARN watchdog lane dead — respawning"
+            spawn_watchdog
         fi
         aggregate_state
 

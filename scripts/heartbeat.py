@@ -124,7 +124,7 @@ def humanize_id(eid: str) -> str:
 def humanize_metric(metric: str) -> str:
     return {
         "variance_explained": "variance explained",
-        "variance_explained_deviation_from_leask": "variance explained vs Leask reference",
+        "variance_explained_deviation_from_leask": "VE deviation from Bussmann/Leask reference (config-specific, deprecated)",
         "pwmcc_vs_null_sigma": "seed-stability vs null baseline (sigma)",
         "dead_latent_fraction": "dead latent fraction",
         "median_detection_score_vs_null_pct95": "interpretability score vs null 95th %ile",
