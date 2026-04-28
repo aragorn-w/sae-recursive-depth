@@ -2,15 +2,15 @@
   "runner_status": "running",
   "pid": 70590,
   "started_at": "2026-04-27T11:09:45+00:00",
-  "last_heartbeat": "2026-04-28T10:27:37.591323+00:00",
-  "current_experiment_id": "gpt2_batchtopk_anchor_d1_s2",
+  "last_heartbeat": "2026-04-28T10:47:31.710101+00:00",
+  "current_experiment_id": "gpt2_batchtopk_d1_s0",
   "most_recent_gate_outcome": {
-    "experiment_id": "gpt2_batchtopk_anchor_d1_s0",
+    "experiment_id": "gpt2_batchtopk_d1_s0",
     "metric": "variance_explained",
-    "value": 0.119408,
+    "value": 0.109026,
     "threshold": 0.2,
-    "action": "halt_and_notify",
-    "timestamp": "2026-04-28T07:46:31.292800+00:00"
+    "action": "skip_experiment",
+    "timestamp": "2026-04-28T10:47:31.710101+00:00"
   },
   "blockers": [],
   "skipped_by_gate": []
