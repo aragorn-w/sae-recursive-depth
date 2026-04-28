@@ -2,7 +2,7 @@
   "runner_status": "idle",
   "pid": 70590,
   "started_at": "2026-04-27T11:09:45+00:00",
-  "last_heartbeat": "2026-04-28T15:51:02.786452+00:00",
+  "last_heartbeat": "2026-04-28T17:21:03.310642+00:00",
   "current_experiment_id": "gpt2_batchtopk_d3_s2",
   "most_recent_gate_outcome": {
     "experiment_id": "gpt2_batchtopk_d3_s2",

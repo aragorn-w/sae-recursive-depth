@@ -98,3 +98,6 @@ timestamp	experiment_id	cell_key	pwmcc	pwmcc_encoder_only	pwmcc_decoder_only	unm
 2026-04-28T16:02:56.186695+00:00	flat_gemma_w16384_s0	google/gemma-2-2b|batchtopk|1|16384|flat_gemma_w16384	0.804788	0.700792	0.908785	0.592224	0	0	3	2	real-data cell
 2026-04-28T16:02:56.186695+00:00	flat_gemma_w16384_s1	google/gemma-2-2b|batchtopk|1|16384|flat_gemma_w16384	0.801103	0.701564	0.900642	0.610809	0	0	3	2	real-data cell
 2026-04-28T16:02:56.186695+00:00	flat_gemma_w16384_s2	google/gemma-2-2b|batchtopk|1|16384|flat_gemma_w16384	0.804971	0.701077	0.908864	0.591766	0	0	3	2	real-data cell
+2026-04-28T17:21:16.078093+00:00	gemma_jumprelu_anchor_d1_s0	google/gemma-2-2b|jumprelu|1|16384|gemma_jumprelu_anchor_d1	0.722975	0.502757	0.943194	0.987457	0	0	3	2	real-data cell
+2026-04-28T17:21:16.078093+00:00	gemma_jumprelu_anchor_d1_s1	google/gemma-2-2b|jumprelu|1|16384|gemma_jumprelu_anchor_d1	0.723973	0.503656	0.944289	0.986786	0	0	3	2	real-data cell
+2026-04-28T17:21:16.078093+00:00	gemma_jumprelu_anchor_d1_s2	google/gemma-2-2b|jumprelu|1|16384|gemma_jumprelu_anchor_d1	0.724438	0.505395	0.943481	0.987244	0	0	3	2	real-data cell
