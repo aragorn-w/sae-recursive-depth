@@ -367,3 +367,46 @@ timestamp	experiment_id	status	base_model	level0_arch	depth	seed	width	variance_
 2026-04-28T06:58:51.368263+00:00	gemma_jumprelu_anchor_d1_s1	ok	google/gemma-2-2b	jumprelu	1	1	16384	0.20364					0.512146	3.16194	8048fc5	https://wandb.ai/bluemon/sae-recursive-depth/runs/6gfau0o6	meta-SAE arch=batchtopk (parent=jumprelu) width=16384 k=4 parent=google/gemma-scope-2b-pt-res-canonical@hf:fd571b47c1c64851e9b1989792367b9babb4af63+sae_lens:6.39.0 parent_width=65536 auxk=on
 2026-04-28T06:59:42.620363+00:00	gemma_jumprelu_anchor_d1_s0	ok	google/gemma-2-2b	jumprelu	1	0	16384	0.204147					0.513306	3.17618	8048fc5	https://wandb.ai/bluemon/sae-recursive-depth/runs/trmsdxqp	meta-SAE arch=batchtopk (parent=jumprelu) width=16384 k=4 parent=google/gemma-scope-2b-pt-res-canonical@hf:fd571b47c1c64851e9b1989792367b9babb4af63+sae_lens:6.39.0 parent_width=65536 auxk=on
 2026-04-28T07:01:39.102735+00:00	l0_gpt2_batchtopk	ok	openai-community/gpt2	batchtopk	0	0	49152	0.950777					0.177938	3.20841	3985b27	https://wandb.ai/bluemon/sae-recursive-depth/runs/pen3o8dj	level-0 BatchTopK on openai-community/gpt2 layer 8 residual, width=49152 k=60 tokens=200000000
+2026-04-28T07:46:29.563722+00:00	gpt2_batchtopk_anchor_d1_s0	ok	openai-community/gpt2	batchtopk	1	0	12288	0.119408					0.359294	0.743263	9554b8d	https://wandb.ai/bluemon/sae-recursive-depth/runs/k4msenr7	meta-SAE arch=batchtopk (parent=batchtopk) width=12288 k=4 parent=train_from_scratch@local parent_width=49152 auxk=on
+2026-04-28T07:46:31.292974+00:00	gemma_jumprelu_d1_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_jumprelu_d1_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_jumprelu_d1_s2	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_jumprelu_d2_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_jumprelu_d2_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_jumprelu_d2_s2	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_jumprelu_d3_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_jumprelu_d3_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_jumprelu_d3_s2	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_d1_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_d1_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_d1_s2	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_d2_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_d2_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_d2_s2	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_d3_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_d3_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_d3_s2	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_jumprelu_anchor_d1_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_jumprelu_anchor_d1_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_jumprelu_anchor_d1_s2	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_anchor_d1_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_anchor_d1_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_anchor_d1_s2	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gpt2_batchtopk_anchor_d1_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gpt2_batchtopk_anchor_d1_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gpt2_batchtopk_anchor_d1_s2	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gpt2_batchtopk_d1_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gpt2_batchtopk_d1_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gpt2_batchtopk_d1_s2	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gpt2_batchtopk_d2_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gpt2_batchtopk_d2_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gpt2_batchtopk_d2_s2	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gpt2_batchtopk_d3_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gpt2_batchtopk_d3_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gpt2_batchtopk_d3_s2	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_ratio_half_d1_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_ratio_half_d1_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_ratio_half_d1_s2	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_ratio_eighth_d1_s0	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_ratio_eighth_d1_s1	stale_auxk_fix															
+2026-04-28T07:46:31.292974+00:00	gemma_batchtopk_ratio_eighth_d1_s2	stale_auxk_fix															
