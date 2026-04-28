@@ -28,3 +28,5 @@ timestamp	experiment_id	metric	observed_value	threshold	action	triggered
 2026-04-27T22:07:03.922144+00:00	flat_gpt2_w12288_s2	variance_explained	0.926622	0.5	skip_experiment	0
 2026-04-28T06:58:53.403693+00:00	gemma_jumprelu_anchor_d1_s1	variance_explained	0.20364	0.2	halt_and_notify	0
 2026-04-28T06:59:44.617426+00:00	gemma_jumprelu_anchor_d1_s0	variance_explained	0.204147	0.2	halt_and_notify	0
+2026-04-28T07:01:41.543767+00:00	l0_gpt2_batchtopk	variance_explained	0.950777	0.7	halt_and_notify	0
+2026-04-28T07:01:41.543767+00:00	l0_gpt2_batchtopk	dead_latent_fraction	0.177938	0.3	halt_and_notify	0
