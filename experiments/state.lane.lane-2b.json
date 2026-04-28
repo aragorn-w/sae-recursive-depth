@@ -2,7 +2,7 @@
   "runner_status": "running",
   "pid": 37690,
   "started_at": "2026-04-27T11:09:48+00:00",
-  "last_heartbeat": "2026-04-28T07:03:46.415705+00:00",
+  "last_heartbeat": "2026-04-28T16:01:27.754828+00:00",
   "current_experiment_id": "flat_gemma_w16384_s2",
   "most_recent_gate_outcome": {},
   "blockers": [],

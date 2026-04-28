@@ -51,3 +51,4 @@ timestamp	experiment_id	metric	observed_value	threshold	action	triggered
 2026-04-28T11:17:14.810763+00:00	gpt2_batchtopk_d3_s0	pwmcc_vs_null_sigma	None	2.0	skip_experiment	0
 2026-04-28T11:19:26.354439+00:00	gpt2_batchtopk_d3_s2	variance_explained	0.0251343	0.2	skip_experiment	1
 2026-04-28T11:19:26.354439+00:00	gpt2_batchtopk_d3_s2	pwmcc_vs_null_sigma	None	2.0	skip_experiment	0
+2026-04-28T16:01:27.754828+00:00	flat_gemma_w16384_s2	variance_explained	0.719076	0.5	skip_experiment	0
