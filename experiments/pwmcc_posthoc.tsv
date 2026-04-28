@@ -91,3 +91,5 @@ timestamp	experiment_id	cell_key	pwmcc	pwmcc_encoder_only	pwmcc_decoder_only	unm
 2026-04-28T11:08:19.931472+00:00	gpt2_batchtopk_d1_s2	openai-community/gpt2|batchtopk|1|12288|gpt2_batchtopk_d1	0.721926	0.539251	0.904601	0.994344	0	0	3	2	real-data cell
 2026-04-28T11:16:31.338470+00:00	gpt2_batchtopk_d2_s0	openai-community/gpt2|batchtopk|2|3072|gpt2_batchtopk_d2	0	0	0	1	0	0	2	1	real-data cell
 2026-04-28T11:16:31.338470+00:00	gpt2_batchtopk_d2_s2	openai-community/gpt2|batchtopk|2|3072|gpt2_batchtopk_d2	0	0	0	1	0	0	2	1	real-data cell
+2026-04-28T11:17:57.700508+00:00	gpt2_batchtopk_d2_s0	openai-community/gpt2|batchtopk|2|3072|gpt2_batchtopk_d2	0	0	0	1	0	0	2	1	real-data cell
+2026-04-28T11:17:57.700508+00:00	gpt2_batchtopk_d2_s2	openai-community/gpt2|batchtopk|2|3072|gpt2_batchtopk_d2	0	0	0	1	0	0	2	1	real-data cell
