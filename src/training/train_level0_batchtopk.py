@@ -114,8 +114,10 @@ def main() -> None:
         del init_buf, init_x
         torch.cuda.empty_cache()
 
+        base_lr = float(row.get("learning_rate") or 3e-4)
+        warmup_steps = int(row.get("lr_warmup_steps") or 0)
         opt = torch.optim.Adam(
-            sae.parameters(), lr=3e-4, betas=(0.9, 0.999), weight_decay=0.0
+            sae.parameters(), lr=base_lr, betas=(0.9, 0.999), weight_decay=0.0
         )
 
         curves_path: Path = ctx.artifact_dir / "curves.tsv"
@@ -148,7 +150,15 @@ def main() -> None:
                         radial = (sae.W_dec.grad * W_unit).sum(dim=1, keepdim=True) * W_unit
                         sae.W_dec.grad.sub_(radial)
                 grad_norm = torch.nn.utils.clip_grad_norm_(sae.parameters(), max_norm=1.0)
-                if grad_norm.item() > 1000:
+                if warmup_steps > 0 and step < warmup_steps:
+                    warmup_lr = base_lr * (step + 1) / warmup_steps
+                    for pg in opt.param_groups:
+                        pg["lr"] = warmup_lr
+                # Divergence guard skips the warmup window: at random init the pre-clip
+                # gradient norm is naturally O(thousands), and clip_grad_norm_(max=1.0)
+                # plus a warmup lr ramping from ~0 keeps the actual update microscopic.
+                # Real divergence (post-warmup blowup) still trips here.
+                if step >= warmup_steps and grad_norm.item() > 1000:
                     _diverged(ctx, f"grad_norm={grad_norm.item():.3g}")
                     raise RuntimeError(f"level-0 diverged (grad) step={step}")
                 opt.step()

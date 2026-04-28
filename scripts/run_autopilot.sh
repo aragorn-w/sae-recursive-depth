@@ -40,7 +40,7 @@ LANES=(
     "lane-1|1|SAE_GPU_REMAP_1=0|meta-SAE parallel seed (yaml '1' → CUDA 0 / 4080)"
     "lane-2a|2|SAE_GPU_REMAP_2=1|24 GB jobs slot A (yaml '2' → CUDA 1 / 3090)"
     "lane-2b|2|SAE_GPU_REMAP_2=3|24 GB jobs slot B (yaml '2' → CUDA 3 / 3090)"
-    "lane-4|4|SAE_GPU_REMAP_4=4|4060 Ti: primary null & flat-SAE control; spills over to gpu_preference=0,1 rows ≤0.5 hr when null queue is empty|SAE_LANE_FALLBACK=0,1 SAE_LANE_FALLBACK_MAX_HOURS=0.5 SAE_GPU_REMAP_0=4 SAE_GPU_REMAP_1=4"
+    "lane-4|4|SAE_GPU_REMAP_4=4|4060 Ti: primary null & flat-SAE control; spills over to gpu_preference=0,1 rows ≤2.0 hr when null queue is empty|SAE_LANE_FALLBACK=0,1 SAE_LANE_FALLBACK_MAX_HOURS=2.0 SAE_GPU_REMAP_0=4 SAE_GPU_REMAP_1=4"
 )
 
 ANALYSIS_LANE="analysis"  # special: not run_loop, runs scripts/run_analysis.sh
