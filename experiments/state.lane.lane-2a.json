@@ -1,9 +1,9 @@
 {
   "runner_status": "running",
-  "pid": 1588098,
+  "pid": 37245,
   "started_at": "2026-04-27T11:09:47+00:00",
-  "last_heartbeat": "2026-04-27T22:07:03.922144+00:00",
-  "current_experiment_id": "flat_gpt2_w12288_s2",
+  "last_heartbeat": "2026-04-28T03:49:06.136694+00:00",
+  "current_experiment_id": "l0_gemma_batchtopk",
   "most_recent_gate_outcome": {},
   "blockers": [],
   "skipped_by_gate": []

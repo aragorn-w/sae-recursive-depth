@@ -1,9 +1,9 @@
 {
-  "runner_status": "idle",
-  "pid": 1622585,
+  "runner_status": "running",
+  "pid": 36728,
   "started_at": "2026-04-27T11:09:45+00:00",
-  "last_heartbeat": "2026-04-27T21:45:02.237407+00:00",
-  "current_experiment_id": "gemma_jumprelu_anchor_d1_s2",
+  "last_heartbeat": "2026-04-28T06:59:44.617426+00:00",
+  "current_experiment_id": "gemma_jumprelu_anchor_d1_s0",
   "most_recent_gate_outcome": {
     "experiment_id": "gemma_jumprelu_anchor_d1_s2",
     "metric": "variance_explained_deviation_from_leask",
