@@ -5,8 +5,11 @@
 #   1. Elapsed wall time > MIN_ELAPSED_S (past boot/load phase)
 #   2. %CPU < CPU_THRESHOLD on two samples 30 s apart
 #   3. curves.tsv missing OR empty OR mtime > CURVES_STALE_S old
-# On confirmation: ntfy, SIGTERM, sleep 30, SIGKILL if still alive.
+# On confirmation: SIGTERM, sleep 30, SIGKILL if still alive.
 # Supervisor (run_autopilot.sh) respawns the lane.
+# Kill events are logged to experiments/logs/watchdog.log; no ntfy
+# (operator preference 2026-04-28: ntfy reserved for unrecoverable
+# meta-blockers, and watchdog kills self-heal via supervisor respawn).
 #
 # Knobs (env, with defaults):
 #   SAE_WATCHDOG_INTERVAL=300      pass interval in seconds
@@ -21,7 +24,6 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 WATCHDOG_LOG="experiments/logs/watchdog.log"
-NTFY="${REPO_ROOT}/scripts/ntfy_send.sh"
 mkdir -p experiments/logs
 
 SLEEP_BETWEEN="${SAE_WATCHDOG_INTERVAL:-300}"
@@ -34,16 +36,6 @@ log() {
     local stamp
     stamp=$(date -Iseconds)
     printf "[%s] %s\n" "$stamp" "$*" | tee -a "$WATCHDOG_LOG"
-}
-
-ntfy_kill() {
-    local exp_id="$1" pid="$2" elapsed="$3" reason="$4"
-    if [[ -x "$NTFY" ]]; then
-        bash "$NTFY" high \
-            "[WATCHDOG] killed zombie ${exp_id}" \
-            "pid=${pid} elapsed=${elapsed}s reason=${reason}; supervisor will respawn lane" \
-            "warning,skull" 2>/dev/null || true
-    fi
 }
 
 extract_exp_id() {
@@ -124,7 +116,6 @@ watchdog_pass() {
             log "DRY_RUN: not killing"
             continue
         fi
-        ntfy_kill "$exp_id" "$pid" "$elapsed" "$reason"
         kill -TERM "$pid" 2>/dev/null || true
         sleep 30
         if kill -0 "$pid" 2>/dev/null; then

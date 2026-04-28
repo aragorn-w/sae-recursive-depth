@@ -699,7 +699,6 @@ main() {
     # doesn't need a self-confirming notification.
 
     local idle_sleep=1800   # 30 min between scans when no eligible work
-    local matrix_complete_announced=0
 
     while true; do
         if [[ -f "$HALT_FILE" ]]; then
@@ -717,18 +716,10 @@ main() {
         local next
         next=$(select_next_pending)
         if [[ "$next" == "NONE" ]]; then
-            if [[ $matrix_complete_announced -eq 0 ]]; then
-                ntfy_send "default" "Autopilot caught up on all current work" "Every experiment that can run right now has run. The autopilot stays alive and will pick up anything that becomes runnable later (a retry that aged past its cooldown, or a new dependency completing)."
-                matrix_complete_announced=1
-            fi
             write_state_field "runner_status" "idle"
             sleep "$idle_sleep"
             continue
         fi
-
-        # Reset the milestone flag whenever new work appears (a previously
-        # failed row aged past cooldown, or a dependency just completed).
-        matrix_complete_announced=0
 
         run_one "$next" || true
 

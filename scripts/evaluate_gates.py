@@ -4,7 +4,6 @@ import argparse
 import datetime
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -26,7 +25,6 @@ AUXK_TRIGGER_VE = 0.50
 AUXK_SENTINEL = Path("experiments/AUXK_ENABLED")
 AUXK_TRIGGER_LOG = Path("experiments/AUXK_TRIGGER.log")
 RESULTS_TSV = Path("experiments/results.tsv")
-NTFY_SCRIPT = Path("scripts/ntfy_send.sh")
 
 def load_metrics(metrics_file):
     metrics = {}
@@ -93,9 +91,9 @@ def maybe_trigger_auxk(exp, metrics, matrix):
     """Auto-apply auxk if a BatchTopK anchor undershoots AUXK_TRIGGER_VE.
 
     Idempotent: bails out if AUXK_SENTINEL already exists. Touches the
-    sentinel, appends `stale_auxk_fix` rows to results.tsv for every
+    sentinel and appends `stale_auxk_fix` rows to results.tsv for every
     BatchTopK anchor + every meta-SAE row at depths 1-3 on either base
-    model, and ntfys high-priority.
+    model. Trigger is logged in AUXK_TRIGGER_LOG.
     """
     eid = exp["id"]
     if "batchtopk_anchor_d1" not in eid:
@@ -138,24 +136,6 @@ def maybe_trigger_auxk(exp, metrics, matrix):
     log_line = f"{now}\t{eid}\tVE={ve:.4f}\trequeued={len(requeue_ids)}\n"
     with AUXK_TRIGGER_LOG.open("a") as f:
         f.write(log_line)
-
-    title = f"[SAE auxk-trigger] {eid} VE={ve:.3f}<{AUXK_TRIGGER_VE}"
-    msg = (
-        f"BatchTopK anchor {eid} returned VE={ve:.4f}, below auxk trigger "
-        f"threshold {AUXK_TRIGGER_VE}. Wrote {AUXK_SENTINEL}. Re-queued "
-        f"{len(requeue_ids)} rows with stale_auxk_fix; runner will pick "
-        f"them up with auxk loss enabled (Bussmann §3, alpha=1/32, k_aux=512). "
-        f"To abort: rm {AUXK_SENTINEL}"
-    )
-    if NTFY_SCRIPT.exists():
-        try:
-            subprocess.run(
-                ["bash", str(NTFY_SCRIPT), "high", title, msg, "warning"],
-                timeout=15,
-                check=False,
-            )
-        except Exception as e:
-            print(f"[evaluate_gates] ntfy failed (non-fatal): {e!r}", file=sys.stderr)
 
 
 def descendants_to_skip(matrix, exp, action):
@@ -223,9 +203,8 @@ def main():
             elif action == "skip_experiment":
                 pass
 
-    # Auxk auto-trigger: must run AFTER gate eval so the trigger ntfy and
-    # the gate ntfy don't collide, and BEFORE state.json is written so any
-    # state changes from the trigger (currently none, but reserved) compose.
+    # Auxk auto-trigger runs BEFORE state.json is written so any state
+    # changes from the trigger (currently none, but reserved) compose.
     maybe_trigger_auxk(exp, metrics, matrix)
 
     state["skipped_by_gate"] = sorted(skipped)
