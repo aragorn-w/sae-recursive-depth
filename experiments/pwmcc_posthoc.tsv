@@ -68,3 +68,5 @@ timestamp	experiment_id	cell_key	pwmcc	pwmcc_encoder_only	pwmcc_decoder_only	unm
 2026-04-27T22:10:32.360620+00:00	flat_gpt2_w12288_s2	openai-community/gpt2|batchtopk|1|12288|flat_gpt2_w12288	0.83695	0.81312	0.860779	0.467407	0	0	3	2	real-data cell
 2026-04-28T07:01:15.918651+00:00	gemma_jumprelu_anchor_d1_s0	google/gemma-2-2b|jumprelu|1|16384|gemma_jumprelu_anchor_d1	0.72251	0.501018	0.944002	0.987	0	0	2	1	real-data cell
 2026-04-28T07:01:15.918651+00:00	gemma_jumprelu_anchor_d1_s1	google/gemma-2-2b|jumprelu|1|16384|gemma_jumprelu_anchor_d1	0.72251	0.501018	0.944002	0.987	0	0	2	1	real-data cell
+2026-04-28T07:03:10.772946+00:00	gemma_jumprelu_anchor_d1_s0	google/gemma-2-2b|jumprelu|1|16384|gemma_jumprelu_anchor_d1	0.72251	0.501018	0.944002	0.987	0	0	2	1	real-data cell
+2026-04-28T07:03:10.772946+00:00	gemma_jumprelu_anchor_d1_s1	google/gemma-2-2b|jumprelu|1|16384|gemma_jumprelu_anchor_d1	0.72251	0.501018	0.944002	0.987	0	0	2	1	real-data cell

@@ -71,3 +71,4 @@ Auto-appended by scripts/run_loop.sh. One row per completed experiment.
 - 2026-04-27T22:09:26+00:00  **flat_gpt2_w12288_s2**  VE=0.926622  PW-MCC=NA  elapsed=3441s
 - 2026-04-28T07:00:27+00:00  **gemma_jumprelu_anchor_d1_s1**  VE=0.20364  PW-MCC=NA  elapsed=11388s
 - 2026-04-28T07:01:46+00:00  **gemma_jumprelu_anchor_d1_s0**  VE=0.204147  PW-MCC=NA  elapsed=11440s
+- 2026-04-28T07:03:40+00:00  **l0_gpt2_batchtopk**  VE=0.950777  PW-MCC=NA  elapsed=11554s
