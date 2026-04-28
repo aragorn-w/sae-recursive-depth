@@ -128,8 +128,8 @@ experiments:
   gpu_preference: "0"
   dependencies: []
   decision_gates:
-  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
-  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
   estimated_gpu_hours: 0.5
   outputs:
   - "experiments/artifacts/gemma_jumprelu_d1_s0/checkpoint.pt"
@@ -151,8 +151,8 @@ experiments:
   gpu_preference: "1"
   dependencies: []
   decision_gates:
-  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
-  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
   estimated_gpu_hours: 0.5
   outputs:
   - "experiments/artifacts/gemma_jumprelu_d1_s1/checkpoint.pt"
@@ -174,8 +174,8 @@ experiments:
   gpu_preference: "0"
   dependencies: []
   decision_gates:
-  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
-  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
   estimated_gpu_hours: 0.5
   outputs:
   - "experiments/artifacts/gemma_jumprelu_d1_s2/checkpoint.pt"
@@ -335,8 +335,8 @@ experiments:
   gpu_preference: "0"
   dependencies: ["l0_gemma_batchtopk"]
   decision_gates:
-  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
-  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
   estimated_gpu_hours: 0.5
   outputs:
   - "experiments/artifacts/gemma_batchtopk_d1_s0/checkpoint.pt"
@@ -358,8 +358,8 @@ experiments:
   gpu_preference: "1"
   dependencies: ["l0_gemma_batchtopk"]
   decision_gates:
-  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
-  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
   estimated_gpu_hours: 0.5
   outputs:
   - "experiments/artifacts/gemma_batchtopk_d1_s1/checkpoint.pt"
@@ -381,8 +381,8 @@ experiments:
   gpu_preference: "0"
   dependencies: ["l0_gemma_batchtopk"]
   decision_gates:
-  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
-  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
   estimated_gpu_hours: 0.5
   outputs:
   - "experiments/artifacts/gemma_batchtopk_d1_s2/checkpoint.pt"
@@ -770,8 +770,8 @@ experiments:
   gpu_preference: "0"
   dependencies: ["l0_gpt2_batchtopk"]
   decision_gates:
-  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
-  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
   estimated_gpu_hours: 0.3
   outputs:
   - "experiments/artifacts/gpt2_batchtopk_d1_s0/checkpoint.pt"
@@ -793,8 +793,8 @@ experiments:
   gpu_preference: "1"
   dependencies: ["l0_gpt2_batchtopk"]
   decision_gates:
-  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
-  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
   estimated_gpu_hours: 0.3
   outputs:
   - "experiments/artifacts/gpt2_batchtopk_d1_s1/checkpoint.pt"
@@ -816,8 +816,8 @@ experiments:
   gpu_preference: "0"
   dependencies: ["l0_gpt2_batchtopk"]
   decision_gates:
-  - {metric: "variance_explained", threshold: 0.20, action: "skip_depth"}
-  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_depth"}
+  - {metric: "variance_explained", threshold: 0.20, action: "skip_experiment"}
+  - {metric: "pwmcc_vs_null_sigma", threshold: 2.0, action: "skip_experiment"}
   estimated_gpu_hours: 0.3
   outputs:
   - "experiments/artifacts/gpt2_batchtopk_d1_s2/checkpoint.pt"

@@ -210,6 +210,38 @@ Edit: 18 lines in `EXPERIMENTS.yaml` (9 rows × 2 gate lines per row): variance_
 
 ---
 
+## 2026-04-28 (Tue, ~10:15Z): Decision 10 — d1 cascade action skip_depth -> skip_experiment
+
+### Context
+
+`gpt2_batchtopk_d1_s1` finished `ok` at VE=0.115188 (row in `experiments/results.tsv` at 2026-04-28T09:54:50Z), below the 0.20 `skip_depth` floor. The gate fired `skip_depth` at 09:54:52Z and cascade-skipped `gpt2_batchtopk_d2_s1` and `gpt2_batchtopk_d3_s1`, defeating the seed-1 recovery for the GPT-2 BatchTopK lineage. Decision 1 from the morning entry explicitly flagged this contingency: "Per-row floors on the recursive d1/d2/d3 rows left at 0.20 — to be revisited if any cascade fires."
+
+The VE level is recipe-typical, not a collapse: GPT-2 BatchTopK at width 12288 (1/4 ratio) lands at VE 0.115–0.125 across both anchor (rows `gpt2_batchtopk_anchor_d1_s{0,1}` at 2026-04-28T07:46:29 and 08:17:07, VE 0.119408 and 0.124993) and recursive d1 (this row 0.115188). The Gemma JumpReLU equivalents land at ~0.18–0.20. The original assumption baked into the d1 floor — that low d1 VE means recipe collapse and should kill children — is wrong at this ratio for the GPT-2 path.
+
+### Operator decision
+
+Option B from operator session: change all 9 recursive d1 rows' actions from `skip_depth` to `skip_experiment`. Mirrors Decision 9's d2 change. d1 result is still recorded under its own gate; the cascade to d2/d3 is severed. Two pending GPT-2 d1 retrains (`gpt2_batchtopk_d1_s0`, `d1_s2`, both tagged `stale_auxk_fix` at 07:46:31) will almost certainly hit ~0.12 again and fire `skip_experiment` on themselves — no cascade impact.
+
+Decision authority: human operator at 2026-04-28T10:12Z.
+
+### Action taken
+
+1. Edited `EXPERIMENTS.yaml`: 18 lines (9 d1 rows × 2 gate lines per row) flipped action `skip_depth` -> `skip_experiment` on `variance_explained` (threshold 0.20) and `pwmcc_vs_null_sigma` (threshold 2.0). Affects rows `gemma_jumprelu_d1_s{0,1,2}` (lines 131-132, 154-155, 177-178), `gemma_batchtopk_d1_s{0,1,2}` (lines 338-339, 361-362, 384-385), `gpt2_batchtopk_d1_s{0,1,2}` (lines 773-774, 796-797, 819-820). The 9 anchor `skip_depth` actions at threshold 0.10 remain unchanged (anchors have no downstream chain).
+
+2. Appended `stale_seed1_recover` markers for `gpt2_batchtopk_d2_s1` and `gpt2_batchtopk_d3_s1` to `experiments/results.tsv` at 2026-04-28T10:12:08Z so the runner re-stages under the new semantics.
+
+3. Cleared `skipped_by_gate` (gpt2_batchtopk entries only) from `experiments/state.json` (root + lane-1 sublane) and `experiments/state.lane.lane-1.json`.
+
+### Note on Gemma seed-1 recovery
+
+While Decision 10 was being applied, lane-1 completed both `gemma_jumprelu_d2_s1` (VE -0.005803, fired skip_experiment correctly per Decision 9) at 2026-04-28T10:08:42Z and `gemma_jumprelu_d3_s1` at 10:11:26Z. Gemma seed-1 recovery is complete. GPT-2 seed-1 recovery is now unblocked under Decision 10 and will be picked up by the next loop iteration.
+
+### Scope deviation note
+
+This is the third gate-action relaxation in 24 hours: anchor floor 0.50 -> 0.20 -> 0.10 (Decisions 1), d2 action skip_depth -> skip_experiment (Decision 9), d1 action skip_depth -> skip_experiment (Decision 10). The recipe-typical low-VE pattern at 1/4 ratio is now the working assumption, with skip_experiment used to record the data point without cascading to children. The matrix's original "low VE = recipe failure" semantics remain intact only at threshold 0.10 (anchors) — anything below 0.10 still cascade-skips.
+
+---
+
 ## Submission day (2026-05-09 23:59 MDT)
 
 placeholder.
