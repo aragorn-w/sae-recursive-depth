@@ -2,8 +2,8 @@
   "runner_status": "running",
   "pid": 36728,
   "started_at": "2026-04-27T11:09:45+00:00",
-  "last_heartbeat": "2026-04-28T07:46:31.292800+00:00",
-  "current_experiment_id": "gpt2_batchtopk_anchor_d1_s0",
+  "last_heartbeat": "2026-04-28T07:48:08.752971+00:00",
+  "current_experiment_id": "gemma_jumprelu_anchor_d1_s0",
   "most_recent_gate_outcome": {
     "experiment_id": "gpt2_batchtopk_anchor_d1_s0",
     "metric": "variance_explained",
