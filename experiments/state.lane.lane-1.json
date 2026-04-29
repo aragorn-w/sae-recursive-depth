@@ -2,7 +2,7 @@
   "runner_status": "idle",
   "pid": 70570,
   "started_at": "2026-04-27T11:09:46+00:00",
-  "last_heartbeat": "2026-04-28T17:13:09.127750+00:00",
+  "last_heartbeat": "2026-04-29T00:13:11.480077+00:00",
   "current_experiment_id": "gemma_jumprelu_d3_s1",
   "most_recent_gate_outcome": {
     "experiment_id": "gemma_jumprelu_d3_s1",
