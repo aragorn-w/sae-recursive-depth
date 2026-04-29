@@ -2,8 +2,8 @@
   "runner_status": "running",
   "pid": 37690,
   "started_at": "2026-04-27T11:09:48+00:00",
-  "last_heartbeat": "2026-04-29T00:32:08.575978+00:00",
-  "current_experiment_id": "flat_gemma_w4096_s0",
+  "last_heartbeat": "2026-04-29T08:55:01.850020+00:00",
+  "current_experiment_id": "flat_gemma_w4096_s1",
   "most_recent_gate_outcome": {},
   "blockers": [],
   "skipped_by_gate": []

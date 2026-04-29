@@ -54,3 +54,4 @@ timestamp	experiment_id	metric	observed_value	threshold	action	triggered
 2026-04-28T16:01:27.754828+00:00	flat_gemma_w16384_s2	variance_explained	0.719076	0.5	skip_experiment	0
 2026-04-28T17:19:45.838207+00:00	gemma_jumprelu_anchor_d1_s2	variance_explained	0.200981	0.1	skip_depth	0
 2026-04-29T00:32:08.575978+00:00	flat_gemma_w4096_s0	variance_explained	0.684019	0.5	skip_experiment	0
+2026-04-29T08:55:01.850020+00:00	flat_gemma_w4096_s1	variance_explained	0.688604	0.5	skip_experiment	0
