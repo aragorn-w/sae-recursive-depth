@@ -125,7 +125,7 @@ def main() -> None:
 
         step = 0
         last_loss = float("nan")
-        with curves_path.open("w") as cf:
+        with curves_path.open("w", buffering=1) as cf:
             cf.write("step\tloss\n")
             for batch in iter_residual_batches(
                 base,

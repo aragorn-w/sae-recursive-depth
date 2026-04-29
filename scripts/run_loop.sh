@@ -44,7 +44,7 @@ mkdir -p "$LOG_DIR" experiments/artifacts "$CLAIM_DIR"
 SESSION_SKIPFILE="${SESSION_SKIPFILE:-$(mktemp -t sae_session_skips.XXXXXX)}"
 export SESSION_SKIPFILE
 : > "$SESSION_SKIPFILE"
-trap 'rm -f "$SESSION_SKIPFILE"' EXIT
+trap 'jobs -p | xargs -r kill 2>/dev/null; rm -f "$SESSION_SKIPFILE"' EXIT
 
 EXIT_SCAFFOLD_STUB=99
 
@@ -548,7 +548,8 @@ run_one() {
         echo "[lane=$SAE_LANE_LABEL] claim_lost $exp_id" >&2
         return 0
     fi
-    trap "release_row '$exp_id'" RETURN
+    trap 'kill "$bg_hb_pid" 2>/dev/null; release_row '"'$exp_id'"'' RETURN
+    local bg_hb_pid=""
     local gpu_pref
     gpu_pref=$(get_experiment_field "$exp_id" "gpu_preference")
     local gpu_actual
@@ -575,8 +576,17 @@ run_one() {
         attempt=$((attempt + 1))
         heartbeat
         echo "=== attempt $attempt for $exp_id ===" >> "$log_file"
+        # Background heartbeater: bash blocks on `tee` for the full python
+        # subprocess duration (multi-hour for L0 trainings), so without this
+        # the lane state's last_heartbeat freezes at attempt-start. Reaped
+        # immediately after PIPESTATUS so all return paths below see
+        # bg_hb_pid="" and the trap's kill becomes a no-op.
+        ( while sleep 60; do heartbeat; done ) & bg_hb_pid=$!
         CUDA_VISIBLE_DEVICES="$gpu_actual" uv run python -m "$entrypoint" --experiment-id "$exp_id" 2>&1 | tee -a "$log_file"
         rc=${PIPESTATUS[0]}
+        kill "$bg_hb_pid" 2>/dev/null || true
+        wait "$bg_hb_pid" 2>/dev/null || true
+        bg_hb_pid=""
         if [[ $rc -eq 0 ]]; then
             success=1
             break

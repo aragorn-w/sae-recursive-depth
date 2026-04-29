@@ -185,7 +185,24 @@ def summarize() -> tuple[str, str, str]:
     n_done = len(complete_ids & nonstretch_ids)
     n_total = len(nonstretch_ids)
     n_remaining = n_total - n_done
-    permanently_failed = {eid for eid, n in attempts.items() if n >= MAX_ATTEMPTS}
+
+    # An experiment is "given up on" only if it has hit the retry cap AND is
+    # not currently OK AND is not actively being retried by any lane. Without
+    # these exclusions the heartbeat surfaces stale failure history (e.g.
+    # flat_gemma_w16384_s* failed many times before succeeding) or contradicts
+    # the "currently training" line for an in-progress retry.
+    _cur_state = state.get("current_experiment_id") or ""
+    active_eids: set[str] = set()
+    if isinstance(_cur_state, dict):
+        active_eids.update(v for v in _cur_state.values() if v)
+    elif isinstance(_cur_state, str) and _cur_state:
+        active_eids.add(_cur_state)
+    for v in (state.get("lanes") or {}).values():
+        if isinstance(v, dict) and v.get("current_experiment_id"):
+            active_eids.add(v["current_experiment_id"])
+    permanently_failed = {
+        eid for eid, n in attempts.items() if n >= MAX_ATTEMPTS
+    } - complete_ids - active_eids
 
     gpu_seconds = 0.0
     for r in rows:

@@ -188,7 +188,7 @@ def main() -> None:
         log_every = max(1, total_steps // 100)
 
         curves_path: Path = ctx.artifact_dir / "curves.tsv"
-        with curves_path.open("w") as cf:
+        with curves_path.open("w", buffering=1) as cf:
             cf.write("step\tloss\tauxk_loss\tn_dead\n")
             step = 0
             last_auxk_value = 0.0
