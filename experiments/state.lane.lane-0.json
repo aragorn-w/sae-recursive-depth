@@ -1,9 +1,9 @@
 {
   "runner_status": "idle",
-  "pid": 70590,
+  "pid": 341924,
   "started_at": "2026-04-27T11:09:45+00:00",
-  "last_heartbeat": "2026-04-30T01:21:14.035304+00:00",
-  "current_experiment_id": "gpt2_batchtopk_d3_s2",
+  "last_heartbeat": "2026-04-30T10:02:01.167628+00:00",
+  "current_experiment_id": "flat_gemma_w1024_s2",
   "most_recent_gate_outcome": {
     "experiment_id": "gpt2_batchtopk_d3_s2",
     "metric": "variance_explained",
