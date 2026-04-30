@@ -204,13 +204,18 @@ def summarize() -> tuple[str, str, str]:
         eid for eid, n in attempts.items() if n >= MAX_ATTEMPTS
     } - complete_ids - active_eids
 
-    gpu_seconds = 0.0
+    gpu_hours = 0.0
     for r in rows:
         try:
-            gpu_seconds += float(r.get("gpu_hours") or 0)
+            v = float(r.get("gpu_hours") or 0)
         except ValueError:
-            pass
-    gpu_hours = gpu_seconds / 3600.0
+            continue
+        # Back-compat: pre-fix run_loop.sh fallback rows wrote elapsed seconds
+        # into this column. No legitimate single-experiment training exceeds
+        # ~24h, so values above the threshold are legacy seconds — convert.
+        if v > 100.0:
+            v = v / 3600.0
+        gpu_hours += v
 
     runner_status = state.get("runner_status") or "unknown"
     # Liveness check: with the parallel orchestrator, treat the runner as

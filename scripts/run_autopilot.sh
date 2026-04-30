@@ -36,10 +36,10 @@ export SAE_MAX_ATTEMPTS="${SAE_MAX_ATTEMPTS:-10}"
 # Extra env (5th, optional): pipe-delimited string of extra env assignments
 # to inject into the lane's shell, e.g. "SAE_LANE_FALLBACK=0 SAE_GPU_REMAP_0=4".
 LANES=(
-    "lane-0|0|SAE_GPU_REMAP_0=2|meta-SAE primary (yaml '0' → CUDA 2 / 4080)"
-    "lane-1|1|SAE_GPU_REMAP_1=0|meta-SAE parallel seed (yaml '1' → CUDA 0 / 4080)"
-    "lane-2a|2|SAE_GPU_REMAP_2=1|24 GB jobs slot A (yaml '2' → CUDA 1 / 3090)"
-    "lane-2b|2|SAE_GPU_REMAP_2=3|24 GB jobs slot B (yaml '2' → CUDA 3 / 3090)"
+    "lane-0|0|SAE_GPU_REMAP_0=2|meta-SAE primary (yaml '0' → CUDA 2 / 4080); spills to ≤2.0 hr gpu_pref=1 rows so the two 4080s can race for meta-SAE work|SAE_LANE_FALLBACK=1 SAE_LANE_FALLBACK_MAX_HOURS=2.0 SAE_GPU_REMAP_1=2"
+    "lane-1|1|SAE_GPU_REMAP_1=0|meta-SAE parallel seed (yaml '1' → CUDA 0 / 4080); spills to ≤2.0 hr gpu_pref=0 rows so the two 4080s can race for meta-SAE work|SAE_LANE_FALLBACK=0 SAE_LANE_FALLBACK_MAX_HOURS=2.0 SAE_GPU_REMAP_0=0"
+    "lane-2a|2|SAE_GPU_REMAP_2=1,3|24 GB jobs slot A — sees both 3090s for n_devices=2 sharding (l0_gemma_batchtopk fp32). Pre-2026-05-04: SAE_GPU_REMAP_2=1 (single 3090, OOM'd repeatedly)"
+    "lane-2b|2|SAE_GPU_REMAP_2=1,3|24 GB jobs slot B — sees both 3090s for n_devices=2 sharding (l0_gemma_batchtopk fp32). Pre-2026-05-04: SAE_GPU_REMAP_2=3"
     "lane-4|4|SAE_GPU_REMAP_4=4|4060 Ti: primary null & flat-SAE control; spills over to gpu_preference=0,1 rows ≤2.0 hr when null queue is empty|SAE_LANE_FALLBACK=0,1 SAE_LANE_FALLBACK_MAX_HOURS=2.0 SAE_GPU_REMAP_0=4 SAE_GPU_REMAP_1=4"
 )
 

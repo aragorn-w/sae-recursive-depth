@@ -102,7 +102,7 @@ def main() -> None:
 
         opt = torch.optim.Adam(sae.parameters(), lr=3e-4, betas=(0.9, 0.999), weight_decay=0.0)
         curves_path: Path = ctx.artifact_dir / "curves.tsv"
-        log_every = max(1, n_tokens // sae_batch // 100)
+        log_every = max(1, n_tokens // sae_batch // 1000)
         step = 0
         last_loss = float("nan")
         with curves_path.open("w", buffering=1) as cf:

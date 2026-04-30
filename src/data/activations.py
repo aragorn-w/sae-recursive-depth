@@ -40,6 +40,7 @@ def iter_residual_batches(
     device: torch.device | str,
     n_tokens_target: int,
     dtype: torch.dtype = torch.float32,
+    seq_cursor_start: int = 0,
 ) -> Iterator[torch.Tensor]:
     """Yield ``(sae_batch_size, d_model)`` residual tensors on ``device``.
 
@@ -47,6 +48,11 @@ def iter_residual_batches(
     all batches. The model is run with ``torch.no_grad()`` and a single hook
     that captures the requested activation. Sequences are processed in shard
     order; reproducibility flows from the token shard's seed.
+
+    ``seq_cursor_start`` lets a resumed run jump past sequences already
+    consumed by an earlier crashed run. Token shards are deterministic given
+    the seed, so resuming at sequence index k yields the same residuals the
+    crashed run would have produced from step k onward.
     """
     from src.data.pile_tokens import load_token_shard
 
@@ -63,7 +69,7 @@ def iter_residual_batches(
 
     model.eval()
 
-    seq_cursor = 0
+    seq_cursor = max(0, int(seq_cursor_start))
     while total_yielded < n_tokens_target and seq_cursor < n_seqs:
         end = min(seq_cursor + fwd_batch_size, n_seqs)
         batch_tokens = tokens[seq_cursor:end].to(device=device, dtype=torch.long)

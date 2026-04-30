@@ -65,12 +65,23 @@ PINNED_BASE_MODEL_REVISIONS: dict[str, str] = {
 }
 
 
-def load_base_model(model_id: str, *, device: str | torch.device = "cuda"):
+def load_base_model(
+    model_id: str,
+    *,
+    device: str | torch.device = "cuda",
+    n_devices: int = 1,
+):
     """Return a TransformerLens HookedTransformer for ``model_id``.
 
     Per training rule 6, all base-model loads go through this helper so the
     revision sha is pinned in one place. Returns the model in eval mode with
     gradients disabled for inference (callers re-enable as needed).
+
+    ``n_devices`` controls transformer_lens layer-split sharding across
+    contiguous CUDA devices starting at ``device``. n_devices=1 (default)
+    keeps the current single-card behavior. n_devices>=2 splits the
+    transformer blocks evenly across cards; the residual-stream hook still
+    fires on whichever card hosts the corresponding block. fp32 is preserved.
     """
     rev = PINNED_BASE_MODEL_REVISIONS.get(model_id)
     if rev is None:
@@ -93,7 +104,33 @@ def load_base_model(model_id: str, *, device: str | torch.device = "cuda"):
     # pretrained call below uses the short alias when one exists.
     TL_NAME_ALIASES = {"openai-community/gpt2": "gpt2"}
     tl_name = TL_NAME_ALIASES.get(model_id, model_id)
-    model = HookedTransformer.from_pretrained(tl_name, device=str(device))
+    model = HookedTransformer.from_pretrained(
+        tl_name, device=str(device), n_devices=n_devices
+    )
+    if n_devices > 1:
+        # Work around a transformer_lens bug: ``move_model_modules_to_device``
+        # places each block on ``get_best_available_device``, which is the
+        # device with the most free memory at that moment. As blocks fill
+        # cuda:0, cuda:1 momentarily has more free memory and gets the next
+        # block — yielding an alternating 0,1,0,1,... layout instead of a
+        # contiguous layer-split. The block forward then crashes at
+        # ``resid_mid + mlp_out`` because tensors live on different devices.
+        # Reassign blocks deterministically by index, contiguous-block style.
+        n_blocks = len(model.blocks)
+        blocks_per_dev = (n_blocks + n_devices - 1) // n_devices
+        for i, block in enumerate(model.blocks):
+            target = torch.device("cuda", min(i // blocks_per_dev, n_devices - 1))
+            block.to(target)
+        # Embed and ln_final stay on cuda:0; unembed on the last device. This
+        # matches the natural input → output flow and avoids cross-shard moves
+        # at the boundaries.
+        model.embed.to(torch.device("cuda", 0))
+        if hasattr(model, "hook_embed"):
+            model.hook_embed.to(torch.device("cuda", 0))
+        if hasattr(model, "ln_final"):
+            model.ln_final.to(torch.device("cuda", n_devices - 1))
+        if hasattr(model, "unembed"):
+            model.unembed.to(torch.device("cuda", n_devices - 1))
     model.eval()
     for p in model.parameters():
         p.requires_grad_(False)

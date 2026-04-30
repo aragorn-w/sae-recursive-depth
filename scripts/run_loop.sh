@@ -304,9 +304,15 @@ if os.path.exists(gates_tsv):
             elif action == "skip_depth":
                 lineage = (gexp["base_model"], gexp["level0_arch"], gexp["seed"])
                 gdepth = gexp.get("depth", 0)
+                gts = grec.get("timestamp", "")
                 for r in matrix["experiments"]:
                     if (r["base_model"], r["level0_arch"], r["seed"]) == lineage \
                        and r.get("depth", 0) > gdepth:
+                        # Operator-override: a stale_* marker dated after the
+                        # gate fire signals re-eligibility, same mechanism the
+                        # failed-row attempt-counter already honors.
+                        if r["id"] in stale_marker_ts and stale_marker_ts[r["id"]] > gts:
+                            continue
                         skipped.add(r["id"])
 
 # In-session skip set: ids that returned EXIT_SCAFFOLD_STUB during this
@@ -628,6 +634,8 @@ run_one() {
     local end_epoch
     end_epoch=$(date +%s)
     local elapsed=$((end_epoch - start_epoch))
+    local elapsed_hours
+    elapsed_hours=$(awk -v s="$elapsed" 'BEGIN{printf "%.6f", s/3600.0}')
 
     if [[ $success -ne 1 ]]; then
         local now
@@ -640,16 +648,16 @@ run_one() {
             # write a stale_* marker to re-stage after fixing the cause.
             local sig_tag="${last_signature:-unknown}"
             sig_tag="${sig_tag// /_}"
-            printf "%s\t%s\tfailed_structural\t\t\t\t\t\t\t\t\t\t\t\t%d\t\t\trepeated_%s\n" \
-                "$now" "$exp_id" "$elapsed" "$sig_tag" >> "$RESULTS_TSV"
+            printf "%s\t%s\tfailed_structural\t\t\t\t\t\t\t\t\t\t\t\t%s\t\t\trepeated_%s\n" \
+                "$now" "$exp_id" "$elapsed_hours" "$sig_tag" >> "$RESULTS_TSV"
             ntfy_send "high" "Structural failure: $exp_id" \
                 "Two consecutive ${last_signature:-unknown-error} failures on $exp_id (lane $SAE_LANE_LABEL, gpu $gpu_actual). Marked failed_structural; will not auto-retry. Resolve the underlying cause and append a stale_* row to re-stage."
         else
             # Transient-looking failure (different signatures across
             # attempts). The auto-retry policy in select_next_pending
             # re-eligibilizes this row after RETRY_COOLDOWN_SECONDS.
-            printf "%s\t%s\tfailed\t\t\t\t\t\t\t\t\t\t\t\t%d\t\t\tretry_exhausted\n" \
-                "$now" "$exp_id" "$elapsed" >> "$RESULTS_TSV"
+            printf "%s\t%s\tfailed\t\t\t\t\t\t\t\t\t\t\t\t%s\t\t\tretry_exhausted\n" \
+                "$now" "$exp_id" "$elapsed_hours" >> "$RESULTS_TSV"
         fi
         return 1
     fi
@@ -708,7 +716,7 @@ main() {
     # Runner-start ntfy removed: the operator launched it themselves and
     # doesn't need a self-confirming notification.
 
-    local idle_sleep=1800   # 30 min between scans when no eligible work
+    local idle_sleep=120    # 2 min between scans when no eligible work; tight to minimize latency between an upstream unblock and downstream pickup
 
     while true; do
         if [[ -f "$HALT_FILE" ]]; then

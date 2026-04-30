@@ -1,21 +1,26 @@
 #!/usr/bin/env bash
 # scripts/lane_watchdog.sh
-# Detects and kills zombie SAE training processes. Conservative heuristic:
-# all three must hold to flag a process as zombied:
+# Detects and kills zombie SAE training processes. Heuristic:
 #   1. Elapsed wall time > MIN_ELAPSED_S (past boot/load phase)
-#   2. %CPU < CPU_THRESHOLD on two samples 30 s apart
-#   3. curves.tsv missing OR empty OR mtime > CURVES_STALE_S old
-# On confirmation: SIGTERM, sleep 30, SIGKILL if still alive.
-# Supervisor (run_autopilot.sh) respawns the lane.
+#   2. curves.tsv missing OR empty OR mtime > CURVES_STALE_S old
+# Both must hold. On confirmation: SIGTERM, sleep 30, SIGKILL if still
+# alive. Supervisor (run_autopilot.sh) respawns the lane.
+#
+# 2026-05-04: dropped the %CPU<threshold gate. A Python process hung
+# inside a CUDA kernel can have flickering %CPU (background threads,
+# the GIL-holder doing inter-GPU syncs in our sharded setup), which
+# false-negatives the AND gate and lets a wedged process run for
+# hours. curves.tsv staleness alone is reliable: training writes log
+# lines every ~3-4 minutes, so mtime>20min unambiguously means hung.
+#
 # Kill events are logged to experiments/logs/watchdog.log; no ntfy
 # (operator preference 2026-04-28: ntfy reserved for unrecoverable
 # meta-blockers, and watchdog kills self-heal via supervisor respawn).
 #
 # Knobs (env, with defaults):
 #   SAE_WATCHDOG_INTERVAL=300      pass interval in seconds
-#   SAE_WATCHDOG_MIN_ELAPSED=600   skip processes younger than this
-#   SAE_WATCHDOG_CPU_THRESHOLD=1.0 %CPU below which a process is "idle"
-#   SAE_WATCHDOG_CURVES_STALE=1800 curves.tsv mtime older than this = zombie
+#   SAE_WATCHDOG_MIN_ELAPSED=900   skip processes younger than this
+#   SAE_WATCHDOG_CURVES_STALE=1200 curves.tsv mtime older than this = zombie
 #   SAE_WATCHDOG_DRY_RUN=0         set 1 to log without killing
 
 set -u
@@ -27,9 +32,8 @@ WATCHDOG_LOG="experiments/logs/watchdog.log"
 mkdir -p experiments/logs
 
 SLEEP_BETWEEN="${SAE_WATCHDOG_INTERVAL:-300}"
-MIN_ELAPSED_S="${SAE_WATCHDOG_MIN_ELAPSED:-600}"
-CPU_THRESHOLD="${SAE_WATCHDOG_CPU_THRESHOLD:-1.0}"
-CURVES_STALE_S="${SAE_WATCHDOG_CURVES_STALE:-1800}"
+MIN_ELAPSED_S="${SAE_WATCHDOG_MIN_ELAPSED:-900}"
+CURVES_STALE_S="${SAE_WATCHDOG_CURVES_STALE:-1200}"
 DRY_RUN="${SAE_WATCHDOG_DRY_RUN:-0}"
 
 log() {
@@ -77,21 +81,13 @@ watchdog_pass() {
             continue
         fi
 
-        local cpu1
-        cpu1=$(sample_cpu "$pid")
-        is_below "$cpu1" "$CPU_THRESHOLD" || continue
-
-        sleep 30
-        kill -0 "$pid" 2>/dev/null || continue
-        local cpu2
-        cpu2=$(sample_cpu "$pid")
-        is_below "$cpu2" "$CPU_THRESHOLD" || continue
-
         local exp_id
         exp_id=$(extract_exp_id "$pid")
         [[ -z "$exp_id" ]] && continue
         local curves="experiments/artifacts/${exp_id}/curves.tsv"
 
+        # Header-only files exist & are non-empty (10 bytes for "step\tloss\n"),
+        # so the staleness check (mtime > CURVES_STALE_S) is what catches them.
         local reason=""
         if [[ ! -f "$curves" ]]; then
             reason="curves.tsv missing"
@@ -111,7 +107,7 @@ watchdog_pass() {
             continue
         fi
 
-        log "ZOMBIE pid=${pid} exp=${exp_id} elapsed=${elapsed}s cpu=${cpu1}/${cpu2} reason=${reason}"
+        log "ZOMBIE pid=${pid} exp=${exp_id} elapsed=${elapsed}s reason=${reason}"
         if [[ "$DRY_RUN" == "1" ]]; then
             log "DRY_RUN: not killing"
             continue
@@ -128,9 +124,10 @@ watchdog_pass() {
 }
 
 main() {
-    log "lane_watchdog starting interval=${SLEEP_BETWEEN}s min_elapsed=${MIN_ELAPSED_S}s cpu<${CPU_THRESHOLD} curves_stale>${CURVES_STALE_S}s dry_run=${DRY_RUN}"
+    log "lane_watchdog starting interval=${SLEEP_BETWEEN}s min_elapsed=${MIN_ELAPSED_S}s curves_stale>${CURVES_STALE_S}s dry_run=${DRY_RUN}"
     while true; do
         watchdog_pass || log "pass error rc=$?"
+        log "pass complete; $(ls experiments/.row_claims/ 2>/dev/null | wc -l) active claim(s); next pass in ${SLEEP_BETWEEN}s"
         sleep "$SLEEP_BETWEEN"
     done
 }
