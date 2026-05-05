@@ -2,7 +2,7 @@
   "runner_status": "running",
   "pid": 1065826,
   "started_at": "2026-04-27T11:09:48+00:00",
-  "last_heartbeat": "2026-05-05T03:46:04.758489+00:00",
+  "last_heartbeat": "2026-05-05T03:47:04.792369+00:00",
   "current_experiment_id": "l0_gemma_batchtopk",
   "most_recent_gate_outcome": {},
   "blockers": [],
