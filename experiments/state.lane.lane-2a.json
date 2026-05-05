@@ -1,8 +1,8 @@
 {
-  "runner_status": "running",
-  "pid": 37245,
+  "runner_status": "idle",
+  "pid": 1065833,
   "started_at": "2026-04-27T11:09:47+00:00",
-  "last_heartbeat": "2026-04-28T03:49:06.136694+00:00",
+  "last_heartbeat": "2026-05-05T03:45:09.554823+00:00",
   "current_experiment_id": "l0_gemma_batchtopk",
   "most_recent_gate_outcome": {},
   "blockers": [],

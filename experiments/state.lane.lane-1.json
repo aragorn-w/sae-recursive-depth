@@ -1,16 +1,16 @@
 {
-  "runner_status": "idle",
-  "pid": 341980,
+  "runner_status": "running",
+  "pid": 1065829,
   "started_at": "2026-04-27T11:09:46+00:00",
-  "last_heartbeat": "2026-04-30T10:02:01.190091+00:00",
-  "current_experiment_id": "gemma_jumprelu_d3_s1",
+  "last_heartbeat": "2026-05-05T03:45:09.728140+00:00",
+  "current_experiment_id": "gpt2_batchtopk_d2_s1",
   "most_recent_gate_outcome": {
-    "experiment_id": "gemma_jumprelu_d3_s1",
+    "experiment_id": "gpt2_batchtopk_d2_s1",
     "metric": "variance_explained",
-    "value": -0.0256387,
+    "value": 0.0511774,
     "threshold": 0.2,
     "action": "skip_experiment",
-    "timestamp": "2026-04-28T10:11:27.889544+00:00"
+    "timestamp": "2026-05-05T03:45:09.728140+00:00"
   },
   "blockers": [],
   "skipped_by_gate": []
