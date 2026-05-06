@@ -54,4 +54,4 @@ Free-form notes, questions to investigate, things noticed but not addressed. Any
 
 ## Style
 
-Prose in the handoff must avoid em dashes. Use plain sentences. No interpretation of whether results "look promising" or "look concerning". Interpretation goes in `lab_notebook.md` by the human only.
+Plain sentences only. No interpretation of whether results "look promising" or "look concerning". Interpretation goes in `lab_notebook.md` by the human only.

@@ -5,7 +5,7 @@ Project: How Deep Does the Rabbit Hole Go? Testing the Limits of Recursive Featu
 Author: Aragorn Wang (Colorado School of Mines)
 Due: 2026-05-05
 
-This notebook is the human-facing scientific record. The runner writes to `experiments/results.tsv` and `experiments/state.json`. I write here. No em dashes, no AI-writing tells, no interpretation without grounding in a specific row of `results.tsv`.
+This notebook is the human-facing scientific record. The runner writes to `experiments/results.tsv` and `experiments/state.json`. I write here. No interpretation without grounding in a specific row of `results.tsv`.
 
 ---
 

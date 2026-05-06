@@ -22,7 +22,8 @@ Repo: https://github.com/aragorn-w/sae-recursive-depth
 | Bibliography (BibTeX) | [`references.bib`](./references.bib) |
 | Session handoffs between runner and human | [`handoffs/`](./handoffs/) |
 | Raw training + metric results, append-only | `experiments/results.tsv` |
-| Runner state, current matrix position | `experiments/state.json` |
+| Runner state, current matrix position | `experiments/state.json` (root summary) |
+| Per-lane runner state | `experiments/state.lane.lane-{0,1,2a,2b,4}.json` |
 | Per-experiment artifacts, checkpoints, figures | `experiments/artifacts/<experiment_id>/` |
 | Figures for the writeup | `experiments/artifacts/_summary/figures/` |
 | Tests | `tests/` (unit tests for metrics, loaders, gate evaluator) |
@@ -106,7 +107,7 @@ sae-recursive-depth/
 
 ## Status
 
-Day zero. Infrastructure is complete; no experiments have been run yet. See `lab_notebook.md` for today's checklist and `WRITEUP.md` Section IV for current experimental progress.
+Day 22 of 26 (2026-05-06; submission 2026-05-09 23:59 MDT, extended from 2026-05-05). 54 of the 75 matrix rows are `ok` in `experiments/results.tsv`. The remaining 21 rows plus `autointerp_all` are gated on `l0_gemma_batchtopk`, currently at SAE training step 120k of ~244k (~50% of its token budget). The runner has been refactored from the original single-loop design into a 5-lane parallel autopilot (`scripts/run_autopilot.sh`), with per-lane state files at `experiments/state.lane.lane-*.json` and a root `state.json` carrying lane summaries. Numeric progress is in `WRITEUP.md` Section 3; daily detail is in `lab_notebook.md`.
 
 ## Setup
 

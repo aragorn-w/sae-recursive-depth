@@ -18,3 +18,4 @@ wandb/
 .DS_Store
 tea_debug.log
 *.bak
+STYLE.local.md

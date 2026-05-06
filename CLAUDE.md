@@ -84,6 +84,7 @@ column -t -s $'\t' experiments/results.tsv | less -S  # results
 @import ./.claude/rules/training.md
 @import ./.claude/rules/metrics.md
 @import ./.claude/rules/analysis.md
+@import ./STYLE.local.md
 
 ## Scope discipline (final note)
 
