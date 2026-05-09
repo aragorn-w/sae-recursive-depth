@@ -1,0 +1,35 @@
+# Runner state and artifacts
+data/logs/
+data/artifacts/
+data/inflight/
+data/state.json
+data/.row_claims/
+data/.git_commit.lock
+data/[A-Z]*
+
+# Experiment tracking
+wandb/
+
+# Python
+*.pyc
+__pycache__/
+.venv/
+venv/
+
+# Local-only files
+*.local.md
+*.bak
+tea_debug.log
+
+# LaTeX build artifacts (WRITEUP.pdf and WRITEUP.tex are intentionally tracked).
+docs/WRITEUP.aux
+docs/WRITEUP.bbl
+docs/WRITEUP.bcf
+docs/WRITEUP.blg
+docs/WRITEUP.log
+docs/WRITEUP.out
+docs/WRITEUP.run.xml
+docs/WRITEUP.toc
+docs/WRITEUP.fdb_latexmk
+docs/WRITEUP.fls
+docs/WRITEUP.synctex.gz

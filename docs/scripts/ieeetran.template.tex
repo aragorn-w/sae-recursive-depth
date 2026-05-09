@@ -1,0 +1,105 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% IEEEtran requests Times (ptm), but xelatex has no OTF for the TU/ptm bold
+% shapes and silently falls back to medium weight — that's why \bfseries
+% rendered as normal text. fontspec + TeX Gyre Termes (a free Times with
+% true bold/italic/bold-italic) is the xelatex-native fix.
+\usepackage{fontspec}
+\setmainfont{TeX Gyre Termes}[Ligatures=TeX]
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{calc}
+\usepackage{microtype}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue,breaklinks=true]{hyperref}
+
+% Larger, bolder section / subsection headings. IEEEtran's defaults are
+% \normalsize\bfseries\scshape (sections) and \normalsize\itshape (subsections);
+% small-caps at body size reads as visually unbold. Override \@startsection
+% directly — titlesec is known to clash with IEEEtran's internals.
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{\z@}%
+   {2.6ex \@plus 1ex \@minus .3ex}%
+   {1.2ex \@plus .2ex}%
+   {\normalfont\Large\bfseries\centering}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+   {1.8ex \@plus .8ex \@minus .2ex}%
+   {0.8ex \@plus .2ex}%
+   {\normalfont\large\bfseries}}
+\makeatother
+
+% Shrink pandoc-emitted \includegraphics. Figures render inside figure*
+% (twocolumn span); 0.55\textwidth ≈ 3.94 inches wide, down from full
+% \textwidth ≈ 7.16 inches.
+\setkeys{Gin}{width=0.55\textwidth}
+
+% Bold + centered "Abstract" heading on its own line. IEEEtran's default
+% renders an inline "Abstract---" lead-in at body weight; this gives the
+% abstract a header consistent with the other section titles.
+\makeatletter
+\renewenvironment{abstract}{%
+  \par\addvspace{1.2ex}%
+  \begin{center}{\normalfont\large\bfseries Abstract}\end{center}%
+  \par\addvspace{0.3ex}%
+  \begingroup\small\itshape\noindent\ignorespaces
+}{%
+  \par\endgroup\addvspace{0.8\baselineskip}%
+}
+\makeatother
+
+$if(biblatex)$
+\usepackage[backend=biber,style=ieee,sorting=nyt]{biblatex}
+\addbibresource{$bibliography$}
+$endif$
+
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+% Tighten inter-paragraph spacing throughout the body. IEEEtran's default
+% leaves a visible gap between paragraphs in addition to the first-line
+% indent; shrink it so paragraph breaks are signalled by indent only.
+\setlength{\parskip}{0pt}
+
+% Pandoc table column-spec helper (uses \real for proportional widths)
+\usepackage{etoolbox}
+\providecommand{\real}[1]{#1}
+
+\title{\fontsize{19pt}{23pt}\selectfont\bfseries $title$}
+
+\author{%
+$for(author)$%
+  \IEEEauthorblockN{$author.name$}
+  \IEEEauthorblockA{%
+$if(author.affiliation)$    $author.affiliation$\\$endif$
+$if(author.email)$    \texttt{$author.email$}$endif$%
+  }$sep$ \and %
+$endfor$%
+}
+
+\begin{document}
+\maketitle
+
+$if(abstract)$
+\begin{abstract}
+$abstract$
+\end{abstract}
+$endif$
+
+$if(index-terms)$
+\begin{IEEEkeywords}
+$index-terms$
+\end{IEEEkeywords}
+$endif$
+
+$body$
+
+$if(biblatex)$
+\printbibliography
+$endif$
+
+\end{document}
